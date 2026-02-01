@@ -58,7 +58,7 @@ function activate(context) {
         fileExplorerProvider.refresh();
         
         if (treeView) {
-            treeView.title = `Project: ${currentProject}`;
+            treeView.title = currentProject;
         }
     }
 
@@ -130,8 +130,8 @@ function activate(context) {
         }
 
         // Webview가 활성화된 경우
-        if (appEditorProvider.currentWebviewPanel?.active) {
-            return appEditorProvider.currentAppPath;
+        if (appEditorProvider.activeEditor?.panel?.active) {
+            return appEditorProvider.activeEditor.appPath;
         }
 
         return null;
@@ -218,6 +218,8 @@ function activate(context) {
         ['wizExplorer.newApp', (node) => {
             if (node?.contextValue === 'appGroup') {
                 appEditorProvider.openCreateAppEditor(node.groupType, node.parentPath, fileExplorerProvider);
+            } else if (node?.contextValue === 'portalAppGroup') {
+                appEditorProvider.openCreatePortalAppEditor(node.resourceUri.fsPath, fileExplorerProvider);
             }
         }],
 

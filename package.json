@@ -18,7 +18,7 @@
       "activitybar": [
         {
           "id": "wiz-explorer",
-          "title": "Wiz Explorer",
+          "title": "WIZ",
           "icon": "resources/icon.svg"
         }
       ]
@@ -219,16 +219,6 @@
           "group": "navigation@1"
         },
         {
-          "command": "wizExplorer.newFile",
-          "when": "view == wizExplorer",
-          "group": "navigation@2"
-        },
-        {
-          "command": "wizExplorer.newFolder",
-          "when": "view == wizExplorer",
-          "group": "navigation@3"
-        },
-        {
           "command": "wizExplorer.switchProject",
           "when": "view == wizExplorer",
           "group": "navigation@4"
@@ -239,6 +229,12 @@
           "command": "wizExplorer.newApp",
           "when": "view == wizExplorer && viewItem == appGroup",
           "group": "1_modification"
+        },
+        {
+          "command": "wizExplorer.newApp",
+          "when": "view == wizExplorer && viewItem == portalAppGroup",
+          "group": "1_modification",
+          "title": "New Portal App"
         },
         {
           "command": "wizExplorer.newFile",

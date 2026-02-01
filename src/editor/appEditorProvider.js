@@ -14,7 +14,9 @@ const {
 const AppEditor = require('./editors/appEditor');
 const RouteEditor = require('./editors/routeEditor');
 const PortalEditor = require('./editors/portalEditor');
+const PortalAppEditor = require('./editors/portalAppEditor');
 const CreateAppEditor = require('./editors/createEditor');
+const CreatePortalAppEditor = require('./editors/createPortalAppEditor');
 
 class AppEditorProvider {
     constructor(context) {
@@ -80,6 +82,8 @@ class AppEditorProvider {
 
         if (category === 'route') {
             this.activeEditor = new RouteEditor(this.context, appPath);
+        } else if (category === 'portal-app') {
+            this.activeEditor = new PortalAppEditor(this.context, appPath);
         } else {
             this.activeEditor = new AppEditor(this.context, appPath);
         }
@@ -123,6 +127,11 @@ class AppEditorProvider {
         // 여기서는 독립적으로 띄우되, activeEditor 갱신은 하지 않음 (기존 Info 유지나 병렬 가능)
     }
 
+    async openCreatePortalAppEditor(parentPath, fileExplorerProvider) {
+        const editor = new CreatePortalAppEditor(this.context, parentPath);
+        await editor.create(fileExplorerProvider);
+    }
+
     /**
      * Restore Info Editor (Split/Reload)
      */
@@ -134,6 +143,8 @@ class AppEditorProvider {
             const { category } = WizPathUtils.parseAppFolder(state.appPath);
             if (category === 'route') {
                 this.activeEditor = new RouteEditor(this.context, state.appPath);
+            } else if (category === 'portal-app') {
+                this.activeEditor = new PortalAppEditor(this.context, state.appPath);
             } else {
                 this.activeEditor = new AppEditor(this.context, state.appPath);
             }

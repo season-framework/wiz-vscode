@@ -1,5 +1,6 @@
 const vscode = require('vscode');
 const path = require('path');
+const fs = require('fs');
 const EditorBase = require('./editorBase');
 const { WizFileUtils, WebviewTemplates } = require('../../core');
 
@@ -52,6 +53,15 @@ class PortalEditor extends EditorBase {
                 vscode.setState({ portalJsonPath: ${JSON.stringify(this.portalJsonPath)} });
             }
 
+            // Custom form data collection for Portal fields
+            function collectFormData() {
+                return {
+                    package: document.getElementById('package').value,
+                    title: document.getElementById('title').value,
+                    version: document.getElementById('version').value
+                };
+            }
+
             function save() {
                 vscode.postMessage({ command: 'update', data: collectFormData() });
             }
@@ -67,11 +77,43 @@ class PortalEditor extends EditorBase {
     }
 
     handleUpdate(data) {
+        // Validation: Package Name (Lowercase letters & numbers only, no spaces)
+        if (data.package && !/^[a-z0-9]+$/.test(data.package)) {
+            vscode.window.showErrorMessage('Invalid Package Name: Only lowercase letters and numbers are allowed (no spaces).');
+            return;
+        }
+
         try {
             const currentData = WizFileUtils.safeReadJson(this.portalJsonPath) || {};
+            const currentPackagePath = path.dirname(this.portalJsonPath);
+            const currentPackageName = path.basename(currentPackagePath);
+            const newPackageName = data.package || currentPackageName;
+            
+            let targetJsonPath = this.portalJsonPath;
+            let pathChanged = false;
+
+            // Handle Folder Rename
+            if (newPackageName !== currentPackageName) {
+                const parentDir = path.dirname(currentPackagePath);
+                const newPackagePath = path.join(parentDir, newPackageName);
+
+                if (fs.existsSync(newPackagePath)) {
+                    vscode.window.showErrorMessage(`Package already exists: ${newPackageName}`);
+                    return;
+                }
+
+                try {
+                    fs.renameSync(currentPackagePath, newPackagePath);
+                    targetJsonPath = path.join(newPackagePath, 'portal.json');
+                    pathChanged = true;
+                } catch (err) {
+                    vscode.window.showErrorMessage(`Failed to rename folder: ${err.message}`);
+                    return;
+                }
+            }
             
             const newData = {
-                package: data.package || currentData.package || '',
+                package: newPackageName,
                 title: data.title || '',
                 version: data.version || currentData.version || '1.0.0',
                 // Enforce Hidden Defaults
@@ -85,13 +127,17 @@ class PortalEditor extends EditorBase {
                 use_model: true
             };
 
-            if (WizFileUtils.safeWriteJson(this.portalJsonPath, newData)) {
+            if (WizFileUtils.safeWriteJson(targetJsonPath, newData)) {
                 vscode.window.showInformationMessage('Portal Info Updated');
+                if (pathChanged) {
+                    vscode.commands.executeCommand('wizExplorer.refresh');
+                    this.dispose();
+                }
             } else {
                 vscode.window.showErrorMessage('Failed to save portal.json');
             }
         } catch (e) {
-            vscode.window.showErrorMessage('Failed to save portal.json');
+            vscode.window.showErrorMessage(`Failed to update portal info: ${e.message}`);
         }
     }
 }

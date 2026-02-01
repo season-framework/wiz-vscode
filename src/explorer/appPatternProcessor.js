@@ -3,12 +3,12 @@
  * App 폴더 패턴 인식 및 그룹화
  */
 
-const { APP_TYPES } = require('../core');
+const { APP_TYPES, FLAT_APP_TYPES } = require('../core');
 const AppGroupItem = require('./treeItems/appGroupItem');
 
 class AppPatternProcessor {
     static get TYPES() {
-        return APP_TYPES;
+        return APP_TYPES.filter(type => !FLAT_APP_TYPES.includes(type));
     }
 
     /**

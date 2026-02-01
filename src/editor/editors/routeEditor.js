@@ -15,6 +15,30 @@ class RouteEditor extends AppEditor {
         await this.initialize(contextListener);
     }
 
+    loadFormOptions() {
+        const { category } = WizPathUtils.parseAppFolder(this.appPath);
+        
+        const parentDir = path.dirname(this.appPath); // .../route
+        const grandParentDir = path.dirname(parentDir); // .../src or .../portal/<pkg>
+        const greatGrandParentDir = path.dirname(grandParentDir); // .../ or .../src/portal
+        
+        let controllerDir;
+        
+        // Check if we are in a portal package: .../src/portal/<pkg>/route/<app>
+        if (path.basename(greatGrandParentDir) === 'portal') {
+             // Portal Route: controller is in <pkg>/controller
+             controllerDir = path.join(grandParentDir, 'controller');
+        } else {
+             // Standard Route: Use standard findControllerDir
+             const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(this.appPath));
+             controllerDir = WizPathUtils.findControllerDir(this.appPath, workspaceFolder);
+        }
+
+        const controllers = WizPathUtils.loadControllers(controllerDir);
+        
+        return { layouts: [], isPage: false, controllers, category };
+    }
+
     // Reuse initialize from AppEditor but generateHtml is overridden
 
     generateHtml(data, { controllers }) {

@@ -78,9 +78,17 @@ class WizPathUtils {
         } else if (parts[0] === 'route') { // support route.brand format too if exists
              category = 'route';
              appTitle = parts.slice(1).join('.');
+        } else if (parentName === 'app') {
+            // Check if grandparent is a package under src/portal
+            const grandParentPath = path.dirname(parentPath);
+            const greatGrandParentPath = path.dirname(grandParentPath);
+            if (path.basename(greatGrandParentPath) === 'portal') {
+                category = 'portal-app';
+                appTitle = folderName;
+            }
         }
 
-        const isWizApp = APP_TYPES.includes(category);
+        const isWizApp = APP_TYPES.includes(category) || category === 'portal-app';
         return { category, appTitle, isWizApp };
     }
 

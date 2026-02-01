@@ -61,10 +61,13 @@ const APP_INDICATOR_FILES = ['app.json', 'view.pug', 'view.html', 'view.ts', 'ap
 // 폴더 아이콘 매핑
 const FOLDER_ICONS = {
     angular: 'symbol-class',
+    app: 'symbol-class',
     assets: 'folder-library',
     controller: 'symbol-method',
+    libs: 'library',
     model: 'symbol-method',
-    route: 'circuit-board'
+    route: 'circuit-board',
+    styles: 'symbol-color'
 };
 
 // 언어 확장자 매핑

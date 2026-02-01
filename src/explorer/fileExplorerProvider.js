@@ -93,6 +93,54 @@ class FileExplorerProvider {
                     }
                     return a.label.localeCompare(b.label);
                 });
+
+                // Customize special folder icons and context values
+                const specialFolders = {
+                    'app': { icon: 'layers', context: 'portalAppGroup' },
+                    'route': { icon: 'circuit-board', context: 'folder' },
+                    'controller': { icon: 'symbol-method', context: 'folder' },
+                    'model': { icon: 'symbol-method', context: 'folder' },
+                    'assets': { icon: 'folder-library', context: 'folder' },
+                    'libs': { icon: 'library', context: 'folder' },
+                    'styles': { icon: 'symbol-color', context: 'folder' }
+                };
+
+                for (const [folderName, config] of Object.entries(specialFolders)) {
+                    const folder = items.find(i => i.label === folderName);
+                    if (folder) {
+                        folder.iconPath = new vscode.ThemeIcon(config.icon);
+                        folder.contextValue = config.context;
+                    }
+                }
+            }
+
+            // Portal App Handling (app folder under src/portal/*)
+            if (folderName === 'app') {
+                const parentDir = path.dirname(dirPath);
+                const grandParentDir = path.dirname(parentDir);
+                if (path.basename(grandParentDir) === 'portal') {
+                    // This is the container folder "src/portal/<pkg>/app"
+                    // We need to mark THIS element as a portalAppGroup, but getChildren is returning its children.
+                    // The parent element (which triggered getChildren) is likely a FileTreeItem representing 'app'.
+                    // So we can't change the parent element's contextValue here directly if we are just returning children.
+                    
+                    // Actually, 'getChildren' is called for an element. 
+                    // To set contextValue for the 'app' folder, we need to do it when the 'app' folder item ITSELF is created.
+                    // That happens when we process the parent package folder.
+                    
+                    return items.map(item => {
+                        if (item.isDirectory) {
+                            item.collapsibleState = vscode.TreeItemCollapsibleState.None;
+                            item.command = {
+                                command: 'wizExplorer.openAppEditor',
+                                title: 'Open App Editor',
+                                arguments: [item.resourceUri.fsPath, 'portal-app']
+                            };
+                            item.contextValue = 'appItem';
+                        }
+                        return item;
+                    });
+                }
             }
 
             // Flat App Types Handling (e.g. route)

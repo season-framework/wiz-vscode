@@ -35,6 +35,16 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 ### 에디터 코드 리팩토링
 18. **AppEditorProvider 분리** - 기능별 에디터 클래스 분리 및 모듈화
 
+### Portal App 에디터 및 생성 기능
+19. **Portal App 에디터 구현** - Portal 패키지 내 App 전용 Info 에디터 구현
+20. **Portal App 생성 기능** - app 폴더 컨텍스트 메뉴에서 새 Portal App 생성
+21. **Portal Route Controller 경로 수정** - Route 에디터가 Portal 패키지 내 controller 폴더 참조하도록 수정
+
+### UI/UX 개선
+22. **Portal 패키지 폴더 아이콘 통일** - app, route, controller, model, assets, libs, styles 폴더에 일관된 아이콘 적용
+23. **탐색기 상단 UI 정리** - "WIZ EXPLORER" 타이틀 제거, 프로젝트명만 표시, 파일/폴더 추가 버튼 제거
+24. **Source app/route 그룹 제거** - Source 카테고리에서 존재하지 않는 route 그룹 제거
+
 ---
 
 ## 상세 작업 내역
@@ -284,7 +294,9 @@ generateRouteInfoHtml(data, controllers, appPath) {
 | `appEditor.js` | 일반 App (Page, Widget 등) 정보 수정 에디터 |
 | `routeEditor.js` | Route 앱 전용 정보 수정 에디터 (AppEditor 상속) |
 | `portalEditor.js` | Portal Package (portal.json) 정보 수정 에디터 |
+| `portalAppEditor.js` | Portal App 전용 정보 수정 에디터 (AppEditor 상속) |
 | `createEditor.js` | 새 App 생성 에디터 |
+| `createPortalAppEditor.js` | Portal App 생성 에디터 |
 
 **적용된 디자인 패턴**:
 1. **상속 패턴** - EditorBase → AppEditor → RouteEditor
@@ -304,10 +316,132 @@ src/editor/
 │   ├── appEditor.js           # 일반 앱 에디터
 │   ├── routeEditor.js         # Route 에디터
 │   ├── portalEditor.js        # Portal 에디터
-│   └── createEditor.js        # 앱 생성 에디터
+│   ├── portalAppEditor.js     # Portal App 에디터
+│   ├── createEditor.js        # 앱 생성 에디터
+│   └── createPortalAppEditor.js # Portal App 생성 에디터
 ├── appEditorProvider.js       # Facade (리팩토링됨)
 ├── appContextListener.js
 └── wizFileSystemProvider.js
+```
+
+---
+
+### 19. Portal App 에디터 구현
+
+**요구사항**: Portal 패키지(`src/portal/<package>/app/*`) 내 앱을 위한 전용 Info 에디터
+
+**구현 내용**:
+
+1. **PortalAppEditor 클래스** (`src/editor/editors/portalAppEditor.js`):
+   - AppEditor를 상속하여 Portal App 전용 로직 구현
+   - `mode: 'portal'` 자동 설정
+   - Namespace → Folder Name → ID 자동 동기화
+   - Controller는 해당 패키지의 `controller` 폴더에서 로드
+
+2. **UI 필드**:
+   - Title, Namespace, Category, View URI, Controller
+   - ID와 Template 필드는 자동 관리되어 UI에서 숨김
+
+3. **자동 동기화 로직**:
+   - Namespace 변경 시 폴더명과 ID가 동일하게 변경
+   - Template은 `wiz-portal-<package>-<namespace>` 형식으로 자동 생성
+
+---
+
+### 20. Portal App 생성 기능
+
+**요구사항**: Portal 패키지의 `app` 폴더에서 우클릭 → "새 앱 만들기" 기능
+
+**구현 내용**:
+
+1. **CreatePortalAppEditor 클래스** (`src/editor/editors/createPortalAppEditor.js`):
+   - Namespace (필수), Title, Category, View URI, Controller 입력 폼
+   - 생성 시 폴더 구조 및 기본 파일 자동 생성
+
+2. **트리뷰 컨텍스트** (`src/explorer/fileExplorerProvider.js`):
+   - `app` 폴더에 `portalAppGroup` contextValue 설정
+   - `layers` 아이콘 적용 (Source의 page/component 그룹과 동일)
+
+3. **메뉴 등록** (`package.json`):
+   - `portalAppGroup` 컨텍스트에서 "New Portal App" 메뉴 표시
+
+4. **생성되는 파일 구조**:
+```
+src/portal/<package>/app/<namespace>/
+├── app.json      # id, mode, title, namespace, category, viewuri, controller, template
+├── view.pug
+├── view.scss
+└── view.ts
+```
+
+---
+
+### 21. Portal Route Controller 경로 수정
+
+**문제**: Portal 패키지 내 Route 앱의 Controller 목록이 `src/controller`를 참조하는 문제
+
+**해결** (`src/editor/editors/routeEditor.js`):
+- `loadFormOptions()` 메소드 오버라이드
+- 경로 구조 분석하여 Portal Route인 경우 `<package>/controller` 폴더 참조
+- 일반 Route인 경우 기존 로직 유지
+
+```javascript
+// Portal Route: .../src/portal/<pkg>/route/<app>
+if (path.basename(greatGrandParentDir) === 'portal') {
+    controllerDir = path.join(grandParentDir, 'controller');
+} else {
+    controllerDir = WizPathUtils.findControllerDir(...);
+}
+```
+
+---
+
+### 22. Portal 패키지 폴더 아이콘 통일
+
+**요구사항**: Portal 패키지 내 특수 폴더들에 Source 디렉토리와 동일한 아이콘 적용
+
+**구현** (`src/explorer/fileExplorerProvider.js`, `src/core/constants.js`):
+
+| 폴더 | 아이콘 |
+|------|--------|
+| app | `layers` |
+| route | `circuit-board` |
+| controller | `symbol-method` |
+| model | `symbol-method` |
+| assets | `folder-library` |
+| libs | `library` |
+| styles | `symbol-color` |
+
+---
+
+### 23. 탐색기 상단 UI 정리
+
+**변경 사항**:
+
+1. **타이틀 변경** (`package.json`):
+   - viewsContainers title: "Wiz Explorer" → "Project"
+
+2. **트리뷰 타이틀** (`src/extension.js`):
+   - `treeView.title`: "Project: main" → "main" (프로젝트명만 표시)
+
+3. **상단 버튼 정리** (`package.json`):
+   - "새 파일", "새 폴더" 버튼 제거
+   - "새로고침", "프로젝트 전환" 버튼만 유지
+
+---
+
+### 24. Source app/route 그룹 제거
+
+**문제**: Source 카테고리에 존재하지 않는 `app/route` 그룹이 표시되는 문제
+
+**해결** (`src/explorer/appPatternProcessor.js`):
+- `TYPES` getter에서 `FLAT_APP_TYPES` 필터링
+- Route는 플랫 구조이므로 app 하위 그룹으로 표시하지 않음
+
+```javascript
+static get TYPES() {
+    return APP_TYPES.filter(type => !FLAT_APP_TYPES.includes(type));
+}
 ```
 
 ---
@@ -369,19 +503,24 @@ src/core/
 
 ### 트리뷰 구조
 ```
-Wiz Explorer
+Project (프로젝트명)
 ├── source (src/)
 │   ├── page 그룹
 │   ├── component 그룹
 │   ├── layout 그룹
+│   ├── route/
+│   ├── controller/
 │   └── 기타 폴더들
 ├── packages (src/portal/)
 │   └── 패키지명/
 │       ├── info (portal.json)
-│       ├── app/
-│       ├── route/
-│       ├── controller/
-│       ├── model/
+│       ├── app/           # 아이콘: layers
+│       ├── route/         # 아이콘: circuit-board
+│       ├── controller/    # 아이콘: symbol-method
+│       ├── model/         # 아이콘: symbol-method
+│       ├── assets/        # 아이콘: folder-library
+│       ├── libs/          # 아이콘: library
+│       ├── styles/        # 아이콘: symbol-color
 │       └── ...
 └── project (루트/)
 ```
@@ -391,7 +530,8 @@ Wiz Explorer
 ## 향후 개선 사항
 
 - [ ] 패키지 생성 기능
-- [ ] Route 앱 생성 기능
+- [x] Route 앱 생성 기능 (Portal Route 지원)
+- [x] Portal App 생성 기능
 - [ ] 검색 기능
 - [ ] Git 상태 표시
 - [ ] 프리뷰 기능 연동
