@@ -66,6 +66,9 @@ class FileExplorerProvider {
             // Check if inside a package folder (child of src/portal)
             const portalPath = path.join(this.workspaceRoot, 'src', 'portal');
             if (path.dirname(dirPath) === portalPath) {
+                // Define default folders that should always appear
+                const defaultFolders = ['app', 'route', 'controller', 'model', 'assets', 'libs', 'styles'];
+                
                 // Rename portal.json to info and set command to open Portal Info Editor
                 const infoItem = items.find(i => i.label === 'portal.json');
                 if (infoItem) {
@@ -75,10 +78,33 @@ class FileExplorerProvider {
                         title: 'Open Portal Info',
                         arguments: [infoItem.resourceUri.fsPath]
                     };
+                } else {
+                    // Create virtual info item if portal.json doesn't exist
+                    const portalJsonPath = path.join(dirPath, 'portal.json');
+                    const virtualInfo = new FileTreeItem('info', portalJsonPath, false, false);
+                    virtualInfo.iconPath = new vscode.ThemeIcon('json');
+                    virtualInfo.description = '(create)';
+                    virtualInfo.command = {
+                        command: 'wizExplorer.openPortalInfo',
+                        title: 'Open Portal Info',
+                        arguments: [portalJsonPath]
+                    };
+                    items.push(virtualInfo);
                 }
 
-                // Sort: info, app, route, controller, model, then others
-                const priority = ['info', 'app', 'route', 'controller', 'model'];
+                // Add missing default folders as virtual items
+                for (const folderLabel of defaultFolders) {
+                    const exists = items.find(i => i.label === folderLabel);
+                    if (!exists) {
+                        const folderPath = path.join(dirPath, folderLabel);
+                        const virtualFolder = new FileTreeItem(folderLabel, folderPath, true, false);
+                        virtualFolder.description = '(create)';
+                        items.push(virtualFolder);
+                    }
+                }
+
+                // Sort: info, app, route, controller, model, assets, libs, styles, then others
+                const priority = ['info', 'app', 'route', 'controller', 'model', 'assets', 'libs', 'styles'];
                 
                 items.sort((a, b) => {
                     const idxA = priority.indexOf(a.label);
@@ -97,7 +123,7 @@ class FileExplorerProvider {
                 // Customize special folder icons and context values
                 const specialFolders = {
                     'app': { icon: 'layers', context: 'portalAppGroup' },
-                    'route': { icon: 'circuit-board', context: 'folder' },
+                    'route': { icon: 'circuit-board', context: 'portalRouteGroup' },
                     'controller': { icon: 'symbol-method', context: 'folder' },
                     'model': { icon: 'symbol-method', context: 'folder' },
                     'assets': { icon: 'folder-library', context: 'folder' },
@@ -119,14 +145,10 @@ class FileExplorerProvider {
                 const parentDir = path.dirname(dirPath);
                 const grandParentDir = path.dirname(parentDir);
                 if (path.basename(grandParentDir) === 'portal') {
-                    // This is the container folder "src/portal/<pkg>/app"
-                    // We need to mark THIS element as a portalAppGroup, but getChildren is returning its children.
-                    // The parent element (which triggered getChildren) is likely a FileTreeItem representing 'app'.
-                    // So we can't change the parent element's contextValue here directly if we are just returning children.
-                    
-                    // Actually, 'getChildren' is called for an element. 
-                    // To set contextValue for the 'app' folder, we need to do it when the 'app' folder item ITSELF is created.
-                    // That happens when we process the parent package folder.
+                    // Create folder if it doesn't exist (virtual folder clicked)
+                    if (!fs.existsSync(dirPath)) {
+                        fs.mkdirSync(dirPath, { recursive: true });
+                    }
                     
                     return items.map(item => {
                         if (item.isDirectory) {
@@ -141,6 +163,25 @@ class FileExplorerProvider {
                         return item;
                     });
                 }
+            }
+
+            // Portal Route Handling (route folder under src/portal/*)
+            if (folderName === 'route') {
+                const parentDir = path.dirname(dirPath);
+                const grandParentDir = path.dirname(parentDir);
+                if (path.basename(grandParentDir) === 'portal') {
+                    // Create folder if it doesn't exist (virtual folder clicked)
+                    if (!fs.existsSync(dirPath)) {
+                        fs.mkdirSync(dirPath, { recursive: true });
+                    }
+                }
+            }
+
+            // Create virtual folder on expand if it doesn't exist
+            if (!fs.existsSync(dirPath)) {
+                fs.mkdirSync(dirPath, { recursive: true });
+                this.refresh();
+                return [];
             }
 
             // Flat App Types Handling (e.g. route)

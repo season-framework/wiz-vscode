@@ -237,6 +237,18 @@
           "title": "New Portal App"
         },
         {
+          "command": "wizExplorer.newApp",
+          "when": "view == wizExplorer && viewItem == routeGroup",
+          "group": "1_modification",
+          "title": "New Route"
+        },
+        {
+          "command": "wizExplorer.newApp",
+          "when": "view == wizExplorer && viewItem == portalRouteGroup",
+          "group": "1_modification",
+          "title": "New Portal Route"
+        },
+        {
           "command": "wizExplorer.newFile",
           "when": "view == wizExplorer && viewItem == folder",
           "group": "1_modification"

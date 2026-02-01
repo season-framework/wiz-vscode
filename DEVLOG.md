@@ -45,6 +45,14 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 23. **탐색기 상단 UI 정리** - "WIZ EXPLORER" 타이틀 제거, 프로젝트명만 표시, 파일/폴더 추가 버튼 제거
 24. **Source app/route 그룹 제거** - Source 카테고리에서 존재하지 않는 route 그룹 제거
 
+### Route 앱 생성 기능
+25. **Route 앱 생성 기능 구현** - src/route 및 portal route 폴더에서 새 Route 생성 기능 추가
+
+### 탐색기 기능 강화
+26. **드래그 앤 드롭 기능 추가** - 일반 파일/폴더에 대해 드래그 앤 드롭으로 이동 지원
+27. **다중 선택 기능 추가** - 트리뷰에서 여러 파일/폴더 동시 선택 가능
+28. **Portal 기본 폴더 자동 표시** - Portal 패키지에서 기본 구조 폴더들이 없어도 항상 표시
+
 ---
 
 ## 상세 작업 내역
@@ -446,6 +454,90 @@ static get TYPES() {
 
 ---
 
+### 25. Route 앱 생성 기능 구현
+
+**요구사항**: src/route 및 portal/route 폴더에서 우클릭 → "새 Route 만들기" 기능
+
+**구현 내용**:
+
+1. **CreateRouteAppEditor 클래스** (`src/editor/editors/createRouteAppEditor.js`):
+   - ID (폴더명), Title, Route Path, Category, Preview URL, Controller 입력 폼
+   - ID 유효성 검사: 영문 소문자 + 숫자만 허용
+   - `isPortalRoute` 플래그로 Portal/Source Route 구분
+
+2. **트리뷰 컨텍스트**:
+   - Source route 폴더: `routeGroup` contextValue (`src/explorer/models/categoryHandlers.js`)
+   - Portal route 폴더: `portalRouteGroup` contextValue (`src/explorer/fileExplorerProvider.js`)
+
+3. **메뉴 등록** (`package.json`):
+   - `routeGroup`: "New Route" 메뉴
+   - `portalRouteGroup`: "New Portal Route" 메뉴
+
+4. **생성되는 파일 구조**:
+```
+src/route/<id>/   또는   src/portal/<pkg>/route/<id>/
+├── app.json      # id, title, route, category, viewuri, controller
+└── controller.py
+```
+
+---
+
+### 26. 드래그 앤 드롭 기능 추가
+
+**요구사항**: 일반 파일/폴더에 대해 드래그 앤 드롭으로 이동 지원
+
+**구현 내용**:
+
+1. **WizDragAndDropController 클래스** (`src/explorer/wizDragAndDropController.js`):
+   - `handleDrag`: 드래그 가능한 아이템 필터링 및 데이터 설정
+   - `handleDrop`: 드롭 시 파일/폴더 이동 처리
+   - `isDraggable`: 드래그 가능 여부 판단
+   - `isDropTarget`: 드롭 대상 유효성 확인
+
+2. **드래그/드롭 제외 대상** (contextValue):
+   - `appGroup`, `appItem`, `portalAppGroup`, `portalRouteGroup`, `routeGroup`, `category`
+
+3. **허용 대상**:
+   - `file`, `folder` (일반 파일/폴더만)
+
+4. **추가 기능**:
+   - 덮어쓰기 확인 다이얼로그
+   - 자기 자신 안으로 이동 방지
+
+---
+
+### 27. 다중 선택 기능 추가
+
+**구현** (`src/extension.js`):
+```javascript
+const treeView = vscode.window.createTreeView('wizExplorer', {
+    treeDataProvider: fileExplorerProvider,
+    showCollapseAll: true,
+    canSelectMany: true,
+    dragAndDropController: dragAndDropController
+});
+```
+
+---
+
+### 28. Portal 기본 폴더 자동 표시
+
+**요구사항**: Portal 패키지에서 기본 구조 폴더들이 없어도 항상 표시
+
+**구현** (`src/explorer/fileExplorerProvider.js`):
+
+1. **기본 폴더 목록**:
+   - `info`, `app`, `route`, `controller`, `model`, `assets`, `libs`, `styles`
+
+2. **가상 아이템 추가**:
+   - 실제로 존재하지 않는 폴더/파일은 `(create)` description과 함께 표시
+   - `portal.json`이 없으면 가상 `info` 아이템 추가
+
+3. **자동 생성**:
+   - 가상 폴더를 확장(클릭)하면 실제 폴더가 자동으로 생성됨
+
+---
+
 ## 주요 코드 변경 이력
 
 ### src/core/ (신규)
@@ -467,12 +559,16 @@ src/core/
 - `editors/appEditor.js` - 일반 앱 Info 에디터
 - `editors/routeEditor.js` - Route 앱 Info 에디터
 - `editors/portalEditor.js` - Portal Info 에디터
+- `editors/portalAppEditor.js` - Portal App 에디터
 - `editors/createEditor.js` - 앱 생성 에디터
+- `editors/createPortalAppEditor.js` - Portal App 생성 에디터
+- `editors/createRouteAppEditor.js` - Route 생성 에디터
 
 ### src/explorer/
-- `fileExplorerProvider.js` - Flat App Types, 패키지 폴더 정렬
-- `models/categoryHandlers.js` - packages 라벨 변경
+- `fileExplorerProvider.js` - Flat App Types, 패키지 폴더 정렬, 가상 폴더 지원
+- `models/categoryHandlers.js` - packages 라벨 변경, routeGroup 컨텍스트
 - `appPatternProcessor.js` - 상수 사용
+- `wizDragAndDropController.js` - 드래그 앤 드롭 컨트롤러
 
 ### package.json
 - keybindings when 조건 수정
@@ -530,8 +626,11 @@ Project (프로젝트명)
 ## 향후 개선 사항
 
 - [ ] 패키지 생성 기능
-- [x] Route 앱 생성 기능 (Portal Route 지원)
+- [x] Route 앱 생성 기능 (Source/Portal Route 지원)
 - [x] Portal App 생성 기능
+- [x] 드래그 앤 드롭 파일 이동
+- [x] 다중 파일 선택
+- [x] Portal 기본 폴더 자동 표시
 - [ ] 검색 기능
 - [ ] Git 상태 표시
 - [ ] 프리뷰 기능 연동

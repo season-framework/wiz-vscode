@@ -17,6 +17,7 @@ const PortalEditor = require('./editors/portalEditor');
 const PortalAppEditor = require('./editors/portalAppEditor');
 const CreateAppEditor = require('./editors/createEditor');
 const CreatePortalAppEditor = require('./editors/createPortalAppEditor');
+const CreateRouteAppEditor = require('./editors/createRouteAppEditor');
 
 class AppEditorProvider {
     constructor(context) {
@@ -129,6 +130,11 @@ class AppEditorProvider {
 
     async openCreatePortalAppEditor(parentPath, fileExplorerProvider) {
         const editor = new CreatePortalAppEditor(this.context, parentPath);
+        await editor.create(fileExplorerProvider);
+    }
+
+    async openCreateRouteAppEditor(parentPath, isPortalRoute, fileExplorerProvider) {
+        const editor = new CreateRouteAppEditor(this.context, parentPath, isPortalRoute);
         await editor.create(fileExplorerProvider);
     }
 

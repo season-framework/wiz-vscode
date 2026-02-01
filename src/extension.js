@@ -70,9 +70,14 @@ function activate(context) {
     );
 
     // ==================== Tree View ====================
+    const WizDragAndDropController = require('./explorer/wizDragAndDropController');
+    const dragAndDropController = new WizDragAndDropController(fileExplorerProvider);
+    
     const treeView = vscode.window.createTreeView('wizExplorer', {
         treeDataProvider: fileExplorerProvider,
-        showCollapseAll: true
+        showCollapseAll: true,
+        canSelectMany: true,
+        dragAndDropController: dragAndDropController
     });
     context.subscriptions.push(treeView);
     updateProjectRoot();
@@ -220,6 +225,10 @@ function activate(context) {
                 appEditorProvider.openCreateAppEditor(node.groupType, node.parentPath, fileExplorerProvider);
             } else if (node?.contextValue === 'portalAppGroup') {
                 appEditorProvider.openCreatePortalAppEditor(node.resourceUri.fsPath, fileExplorerProvider);
+            } else if (node?.contextValue === 'routeGroup') {
+                appEditorProvider.openCreateRouteAppEditor(node.resourceUri.fsPath, false, fileExplorerProvider);
+            } else if (node?.contextValue === 'portalRouteGroup') {
+                appEditorProvider.openCreateRouteAppEditor(node.resourceUri.fsPath, true, fileExplorerProvider);
             }
         }],
 

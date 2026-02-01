@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const vscode = require('vscode');
 const CategoryItem = require('../treeItems/categoryItem');
 const AppPatternProcessor = require('../appPatternProcessor');
 
@@ -14,6 +15,14 @@ class SourceCategory extends CategoryItem {
         if (!fs.existsSync(srcPath)) return [];
         
         const items = this.provider.getFilesAndFolders(srcPath, (item) => item !== 'portal', true);
+        
+        // Set routeGroup context for route folder
+        const routeFolder = items.find(item => item.isDirectory && item.label === 'route');
+        if (routeFolder) {
+            routeFolder.contextValue = 'routeGroup';
+            routeFolder.iconPath = new vscode.ThemeIcon('circuit-board');
+        }
+        
         return this.applyAppShortcut(items);
     }
 
