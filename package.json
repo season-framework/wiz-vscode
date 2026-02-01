@@ -1,0 +1,324 @@
+{
+  "name": "wiz-vscode",
+  "displayName": "Wiz VSCode Explorer",
+  "description": "File explorer prototype for VSCode",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "wiz-explorer",
+          "title": "Wiz Explorer",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "wiz-explorer": [
+        {
+          "id": "wizExplorer",
+          "name": "Files"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "wizExplorer.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "wizExplorer.openFile",
+        "title": "Open File"
+      },
+      {
+        "command": "wizExplorer.revealInExplorer",
+        "title": "Reveal in File Explorer"
+      },
+      {
+        "command": "wizExplorer.openFolder",
+        "title": "Open Folder",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "wizExplorer.switchProject",
+        "title": "Switch Project",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "wizExplorer.newFile",
+        "title": "새 파일",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "wizExplorer.newFolder",
+        "title": "새 폴더",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "wizExplorer.copy",
+        "title": "복사"
+      },
+      {
+        "command": "wizExplorer.paste",
+        "title": "붙여넣기"
+      },
+      {
+        "command": "wizExplorer.delete",
+        "title": "삭제"
+      },
+      {
+        "command": "wizExplorer.switch.info",
+        "title": "Info"
+      },
+      {
+        "command": "wizExplorer.switch.controller",
+        "title": "Controller"
+      },
+      {
+        "command": "wizExplorer.switch.ui",
+        "title": "UI"
+      },
+      {
+        "command": "wizExplorer.switch.component",
+        "title": "Component"
+      },
+      {
+        "command": "wizExplorer.switch.scss",
+        "title": "Style"
+      },
+      {
+        "command": "wizExplorer.switch.api",
+        "title": "API"
+      },
+      {
+        "command": "wizExplorer.switch.socket",
+        "title": "Socket"
+      },
+      {
+        "command": "wizExplorer.newApp",
+        "title": "New App",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "wizExplorer.switch.info.active",
+        "title": "Info ✔"
+      },
+      {
+        "command": "wizExplorer.switch.controller.active",
+        "title": "Controller ✔"
+      },
+      {
+        "command": "wizExplorer.switch.ui.active",
+        "title": "UI ✔"
+      },
+      {
+        "command": "wizExplorer.switch.component.active",
+        "title": "Component ✔"
+      },
+      {
+        "command": "wizExplorer.switch.scss.active",
+        "title": "Style ✔"
+      },
+      {
+        "command": "wizExplorer.switch.api.active",
+        "title": "API ✔"
+      },
+      {
+        "command": "wizExplorer.switch.socket.active",
+        "title": "Socket ✔"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "wizExplorer.switch.info",
+          "group": "navigation@1",
+          "when": "wizExplorer:isAppFile && wizExplorer:activeFileType != 'info'"
+        },
+        {
+          "command": "wizExplorer.switch.info.active",
+          "group": "navigation@1",
+          "when": "wizExplorer:isAppFile && wizExplorer:activeFileType == 'info'"
+        },
+        {
+          "command": "wizExplorer.switch.controller",
+          "group": "navigation@2",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory == 'route' && wizExplorer:activeFileType != 'controller'"
+        },
+        {
+          "command": "wizExplorer.switch.controller.active",
+          "group": "navigation@2",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory == 'route' && wizExplorer:activeFileType == 'controller'"
+        },
+        {
+          "command": "wizExplorer.switch.ui",
+          "group": "navigation@2",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory != 'route' && wizExplorer:activeFileType != 'ui'"
+        },
+        {
+          "command": "wizExplorer.switch.ui.active",
+          "group": "navigation@2",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory != 'route' && wizExplorer:activeFileType == 'ui'"
+        },
+        {
+          "command": "wizExplorer.switch.component",
+          "group": "navigation@3",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory != 'route' && wizExplorer:activeFileType != 'component'"
+        },
+        {
+          "command": "wizExplorer.switch.component.active",
+          "group": "navigation@3",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory != 'route' && wizExplorer:activeFileType == 'component'"
+        },
+        {
+          "command": "wizExplorer.switch.scss",
+          "group": "navigation@4",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory != 'route' && wizExplorer:activeFileType != 'scss'"
+        },
+        {
+          "command": "wizExplorer.switch.scss.active",
+          "group": "navigation@4",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory != 'route' && wizExplorer:activeFileType == 'scss'"
+        },
+        {
+          "command": "wizExplorer.switch.api",
+          "group": "navigation@5",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory != 'route' && wizExplorer:activeFileType != 'api'"
+        },
+        {
+          "command": "wizExplorer.switch.api.active",
+          "group": "navigation@5",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory != 'route' && wizExplorer:activeFileType == 'api'"
+        },
+        {
+          "command": "wizExplorer.switch.socket",
+          "group": "navigation@6",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory != 'route' && wizExplorer:activeFileType != 'socket'"
+        },
+        {
+          "command": "wizExplorer.switch.socket.active",
+          "group": "navigation@6",
+          "when": "wizExplorer:isAppFile && wizExplorer:appCategory != 'route' && wizExplorer:activeFileType == 'socket'"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "wizExplorer.refresh",
+          "when": "view == wizExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "wizExplorer.newFile",
+          "when": "view == wizExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "wizExplorer.newFolder",
+          "when": "view == wizExplorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "wizExplorer.switchProject",
+          "when": "view == wizExplorer",
+          "group": "navigation@4"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "wizExplorer.newApp",
+          "when": "view == wizExplorer && viewItem == appGroup",
+          "group": "1_modification"
+        },
+        {
+          "command": "wizExplorer.newFile",
+          "when": "view == wizExplorer && viewItem == folder",
+          "group": "1_modification"
+        },
+        {
+          "command": "wizExplorer.newFolder",
+          "when": "view == wizExplorer && viewItem == folder",
+          "group": "1_modification"
+        },
+        {
+          "command": "wizExplorer.copy",
+          "when": "view == wizExplorer && (viewItem == file || viewItem == folder)",
+          "group": "2_clipboard"
+        },
+        {
+          "command": "wizExplorer.paste",
+          "when": "view == wizExplorer && viewItem == folder",
+          "group": "2_clipboard"
+        },
+        {
+          "command": "wizExplorer.delete",
+          "when": "view == wizExplorer && (viewItem == file || viewItem == folder || viewItem == appItem)",
+          "group": "3_delete"
+        },
+        {
+          "command": "wizExplorer.revealInExplorer",
+          "when": "view == wizExplorer",
+          "group": "z_reveal"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "wizExplorer.switch.info",
+        "key": "alt+1",
+        "mac": "opt+1",
+        "when": "wizExplorer:isAppFile || resourceScheme == 'wiz'"
+      },
+      {
+        "command": "wizExplorer.switch.ui",
+        "key": "alt+2",
+        "mac": "opt+2",
+        "when": "wizExplorer:isAppFile || resourceScheme == 'wiz'"
+      },
+      {
+        "command": "wizExplorer.switch.component",
+        "key": "alt+3",
+        "mac": "opt+3",
+        "when": "wizExplorer:isAppFile || resourceScheme == 'wiz'"
+      },
+      {
+        "command": "wizExplorer.switch.scss",
+        "key": "alt+4",
+        "mac": "opt+4",
+        "when": "wizExplorer:isAppFile || resourceScheme == 'wiz'"
+      },
+      {
+        "command": "wizExplorer.switch.api",
+        "key": "alt+5",
+        "mac": "opt+5",
+        "when": "wizExplorer:isAppFile || resourceScheme == 'wiz'"
+      },
+      {
+        "command": "wizExplorer.switch.socket",
+        "key": "alt+6",
+        "mac": "opt+6",
+        "when": "wizExplorer:isAppFile || resourceScheme == 'wiz'"
+      }
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "node ./test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.60.0",
+    "@types/node": "14.x",
+    "eslint": "^7.32.0"
+  }
+}
