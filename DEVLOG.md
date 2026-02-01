@@ -5,540 +5,66 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 
 ---
 
-## 작업 순서
+## 작업 이력
+
+> 각 작업의 상세 내용은 [devlog/](./devlog/) 디렉토리의 개별 파일을 참고하세요.
 
 ### 초기 개발 (기반 기능 구현)
-1. **프로젝트 초기 설정** - VS Code 익스텐션 프로젝트 생성, package.json 구성
-2. **Tree View 구현** - Wiz Explorer 사이드바, source/portal/project 카테고리 구조
-3. **File System Provider 구현** - wiz:// 커스텀 URI 스킴, 가상 파일 시스템
-4. **App Editor Provider 구현** - App 폴더 클릭 시 UI 파일 열기
-5. **Info Editor 구현** - Webview 기반 app.json 편집기
-6. **New App 기능 구현** - 새 App 생성 다이얼로그 및 폴더/파일 생성
-7. **Delete 기능 구현** - App 및 파일/폴더 삭제 기능
-8. **Alt+1-6 단축키 구현** - 탭 전환 키보드 단축키 추가
+- [001](./devlog/001-project-setup.md) - 프로젝트 초기 설정
+- [002](./devlog/002-tree-view.md) - Tree View 구현
+- [003](./devlog/003-file-system-provider.md) - File System Provider 구현
+- [004](./devlog/004-app-editor-provider.md) - App Editor Provider 구현
+- [005](./devlog/005-info-editor.md) - Info Editor 구현
+- [006](./devlog/006-new-app.md) - New App 기능 구현
+- [007](./devlog/007-delete.md) - Delete 기능 구현
+- [008](./devlog/008-keyboard-shortcuts.md) - Alt+1-6 단축키 구현
 
 ### 버그 수정 및 개선
-9. **Alt+1-6 단축키 버그 수정** - 탭 전환 대신 숫자가 입력되는 문제 해결
-10. **전체 코드 리팩토링** - Core 모듈 생성, 디자인 패턴 적용, 중복 코드 제거
-11. **창 분할 시 Wiz 탭 복원 버그 수정** - URI 인코딩 및 Webview 상태 복원 구현
+- [009](./devlog/009-keyboard-shortcuts-fix.md) - Alt+1-6 단축키 버그 수정
+- [010](./devlog/010-refactoring.md) - 전체 코드 리팩토링
+- [011](./devlog/011-split-view-fix.md) - 창 분할 시 Wiz 탭 복원 버그 수정
 
 ### Route 앱 지원
-12. **Route 앱 지원 추가** - src/route 하위 폴더를 앱으로 인식
-13. **Route Info 에디터 구현** - Route 전용 정보 편집 UI 생성
-14. **Namespace 변경 시 폴더명/ID 자동 변경** - Info 에디터에서 namespace 수정 시 연동
-15. **Route 앱 UI 개선** - 아이콘 제거, 탭 순서 변경, 기본 파일을 Controller로 설정
+- [012](./devlog/012-route-support.md) - Route 앱 지원 추가
+- [013](./devlog/013-route-info-editor.md) - Route Info 에디터 구현
+- [014](./devlog/014-namespace-sync.md) - Namespace 변경 시 폴더명/ID 자동 변경
+- [015](./devlog/015-route-ui-improvements.md) - Route 앱 UI 개선
 
 ### Portal/Packages 개선
-16. **Portal 카테고리 개선** - 라벨을 packages로 변경, 패키지 폴더 정렬 구현
-17. **Portal Info 에디터 구현** - portal.json 전용 Webview 에디터 추가
+- [016](./devlog/016-portal-category.md) - Portal 카테고리 개선
+- [017](./devlog/017-portal-info-editor.md) - Portal Info 에디터 구현
 
 ### 에디터 코드 리팩토링
-18. **AppEditorProvider 분리** - 기능별 에디터 클래스 분리 및 모듈화
+- [018](./devlog/018-editor-refactoring.md) - AppEditorProvider 분리
 
 ### Portal App 에디터 및 생성 기능
-19. **Portal App 에디터 구현** - Portal 패키지 내 App 전용 Info 에디터 구현
-20. **Portal App 생성 기능** - app 폴더 컨텍스트 메뉴에서 새 Portal App 생성
-21. **Portal Route Controller 경로 수정** - Route 에디터가 Portal 패키지 내 controller 폴더 참조하도록 수정
+- [019](./devlog/019-portal-app-editor.md) - Portal App 에디터 구현
+- [020](./devlog/020-portal-app-creation.md) - Portal App 생성 기능
+- [021](./devlog/021-portal-route-controller.md) - Portal Route Controller 경로 수정
 
 ### UI/UX 개선
-22. **Portal 패키지 폴더 아이콘 통일** - app, route, controller, model, assets, libs, styles 폴더에 일관된 아이콘 적용
-23. **탐색기 상단 UI 정리** - "WIZ EXPLORER" 타이틀 제거, 프로젝트명만 표시, 파일/폴더 추가 버튼 제거
-24. **Source app/route 그룹 제거** - Source 카테고리에서 존재하지 않는 route 그룹 제거
+- [022](./devlog/022-portal-folder-icons.md) - Portal 패키지 폴더 아이콘 통일
+- [023](./devlog/023-explorer-ui-cleanup.md) - 탐색기 상단 UI 정리
+- [024](./devlog/024-source-route-group-removal.md) - Source app/route 그룹 제거
 
 ### Route 앱 생성 기능
-25. **Route 앱 생성 기능 구현** - src/route 및 portal route 폴더에서 새 Route 생성 기능 추가
+- [025](./devlog/025-route-creation.md) - Route 앱 생성 기능 구현
 
 ### 탐색기 기능 강화
-26. **드래그 앤 드롭 기능 추가** - 일반 파일/폴더에 대해 드래그 앤 드롭으로 이동 지원
-27. **다중 선택 기능 추가** - 트리뷰에서 여러 파일/폴더 동시 선택 가능
-28. **Portal 기본 폴더 자동 표시** - Portal 패키지에서 기본 구조 폴더들이 없어도 항상 표시
+- [026](./devlog/026-drag-and-drop.md) - 드래그 앤 드롭 기능 추가
+- [027](./devlog/027-multi-select.md) - 다중 선택 기능 추가
+- [028](./devlog/028-portal-default-folders.md) - Portal 기본 폴더 자동 표시
+- [029](./devlog/029-portal-app-path-label.md) - Portal App 에디터 경로 개선
+- [030](./devlog/030-auto-reveal.md) - 탐색기 자동 하이라이팅 구현
+
+### 프로젝트 관리 기능
+- [031](./devlog/031-project-import.md) - 프로젝트 불러오기 기능 추가
+- [032](./devlog/032-project-deletion.md) - 프로젝트 삭제 기능 추가
+- [033](./devlog/033-app-title-display.md) - App 트리 아이템 표기 개선
 
 ---
 
-## 상세 작업 내역
-
-### 초기 개발 단계
-
-#### 1. 프로젝트 초기 설정
-- VS Code 익스텐션 프로젝트 생성
-- `package.json` 구성 (activationEvents, contributes 등)
-- 기본 디렉토리 구조 설정
-
-#### 2. Tree View 구현
-- Activity Bar에 Wiz Explorer 아이콘 추가
-- `FileExplorerProvider` 클래스 구현
-- source / portal / project 3개 카테고리 구조
-- 파일/폴더 트리 아이템 표시
-
-#### 3. File System Provider 구현
-- `wiz://` 커스텀 URI 스킴 등록
-- `WizFileSystemProvider` 클래스 구현
-- 가상 경로에서 실제 파일 읽기/쓰기
-
-#### 4. App Editor Provider 구현
-- App 폴더(page.*, component.*, layout.*) 인식
-- 클릭 시 UI 파일(view.pug/view.html) 자동 열기
-- App 그룹별 트리 아이템 표시
-
-#### 5. Info Editor 구현
-- Webview 패널 기반 app.json 편집기
-- 폼 UI (Title, Namespace, Category, Controller, Layout 등)
-- 저장/삭제 기능
-
-#### 6. New App 기능 구현
-- App 그룹 컨텍스트 메뉴에 "New App" 추가
-- 생성 다이얼로그 Webview
-- 폴더 및 app.json 파일 자동 생성
-
-#### 7. Delete 기능 구현
-- App 및 파일/폴더 삭제 컨텍스트 메뉴
-- 확인 다이얼로그
-- 재귀적 폴더 삭제
-
-#### 8. Alt+1-6 단축키 구현
-- `package.json`에 keybindings 추가
-- Info(1), UI(2), Component(3), SCSS(4), API(5), Socket(6) 탭 전환
-
----
-
-### 9. Alt+1-6 단축키 버그 수정
-
-**문제**: Alt+1-6 단축키가 탭 전환 대신 숫자를 입력하는 문제
-
-**해결**:
-- `package.json` keybindings의 `when` 조건에 `resourceScheme == 'wiz'` 추가
-- `extension.js`의 `switchFile()` 함수 단순화 - 텍스트 에디터와 웹뷰 모두에서 경로를 올바르게 해석하도록 수정
-
-**변경 파일**:
-- `package.json` - keybindings when 조건 수정
-- `src/extension.js` - switchFile(), resolveCurrentAppPath() 함수 개선
-
----
-
-### 10. 전체 코드 리팩토링
-
-**목표**: 중복 코드 제거, 객체 지향적 디자인 패턴 적용, 재사용 가능한 컴포넌트 분리
-
-**새로 생성된 Core 모듈 (`/src/core/`)**:
-
-| 파일 | 목적 |
-|------|------|
-| `constants.js` | `APP_TYPES`, `FILE_TYPE_MAPPING`, `FOLDER_ICONS` 등 중앙화 상수 |
-| `pathUtils.js` | URI 경로 파싱, 앱 폴더 해석, 컨트롤러/레이아웃 로딩 |
-| `fileUtils.js` | 파일 읽기/쓰기, 언어 감지, JSON 처리 |
-| `uriFactory.js` | Wiz URI 생성 팩토리 |
-| `webviewTemplates.js` | HTML 템플릿 및 스타일 생성 |
-| `index.js` | 모듈 통합 export |
-
-**적용된 디자인 패턴**:
-1. **Configuration Object Pattern** - 상수 중앙화
-2. **Utility/Helper Pattern** - 경로/파일 유틸리티
-3. **Factory Pattern** - URI 생성
-4. **Template Method Pattern** - HTML 템플릿
-5. **Command Pattern** - 커맨드 등록 배열
-
-**리팩토링된 파일**:
-- `src/editor/wizFileSystemProvider.js` - WizPathUtils.getRealPathFromUri 사용
-- `src/editor/appContextListener.js` - 중복 경로 파싱 로직 제거
-- `src/editor/appEditorProvider.js` - WebviewTemplates 활용, 모듈화
-- `src/explorer/appPatternProcessor.js` - APP_TYPES 상수 사용
-- `src/explorer/treeItems/fileTreeItem.js` - FOLDER_ICONS 상수 사용
-- `src/explorer/treeItems/appGroupItem.js` - createAppItem() 헬퍼 메소드 추가
-- `src/extension.js` - 커맨드 배열 패턴, resolveCurrentAppPath() 헬퍼
-
----
-
-### 11. 창 분할 시 Wiz 탭 복원 버그 수정
-
-**문제**: 에디터 창 분할 시 wiz:// 관련 info/ui/component 탭이 새 창에서 컨텍스트를 잃어버리는 문제
-
-**원인**:
-1. URI 쿼리 파라미터의 Base64 인코딩 문자열이 URL 인코딩되지 않음
-2. Info 탭(Webview)에 상태 복원 로직 없음
-
-**해결**:
-1. `src/core/uriFactory.js` - `encodeURIComponent()` 적용
-2. `src/editor/appEditorProvider.js` - `reviveInfoEditor()` 메소드 추가, `vscode.setState()` 호출
-3. `src/extension.js` - `vscode.window.registerWebviewPanelSerializer('wizAppInfo', ...)` 등록
-
----
-
-### 12. Route 앱 지원 추가
-
-**요구사항**: `src/route` 하위 폴더들을 앱으로 인식, Info/Controller 탭만 표시
-
-**구현 내용**:
-
-1. **상수 확장** (`src/core/constants.js`):
-   - `APP_TYPES`에 'route' 추가
-   - `FLAT_APP_TYPES` 배열 추가 (접두어 없는 플랫 구조)
-   - `FILE_TYPE_MAPPING`에 controller 타입 추가
-   - `APP_INDICATOR_FILES`에 `controller.py` 추가
-
-2. **경로 파싱 확장** (`src/core/pathUtils.js`):
-   - `parseAppFolder()` - 부모 폴더가 'route'인 경우 category를 'route'로 설정
-
-3. **트리뷰 처리** (`src/explorer/fileExplorerProvider.js`):
-   - `FLAT_APP_TYPES` 폴더 하위 디렉토리를 앱으로 표시
-   - 클릭 시 `wizExplorer.openAppEditor` 커맨드 실행
-
-4. **컨텍스트 추적** (`src/editor/appContextListener.js`):
-   - `wizExplorer:appCategory` 컨텍스트 키 추가
-
-5. **메뉴 조건 분기** (`package.json`):
-   - Route: Info, Controller 탭만 표시
-   - 일반 앱: UI, Component, SCSS, API, Socket 탭 표시
-
----
-
-### 13. Route Info 에디터 구현
-
-**구현 내용** (`src/editor/appEditorProvider.js`):
-
-```javascript
-generateRouteInfoHtml(data, controllers, appPath) {
-    // Title, ID, Route, Category, Preview URL, Controller 필드
-}
-```
-
-**지원 필드**:
-- Title
-- ID
-- Route
-- Category
-- Preview URL (viewuri)
-- Controller (Select)
-
----
-
-### 14. Namespace 변경 시 폴더명/ID 자동 변경
-
-**요구사항**: Info 에디터에서 namespace 변경 시 폴더명과 app.json의 id도 함께 변경
-
-**구현** (`src/editor/appEditorProvider.js` - `handleUpdate()`):
-- Route가 아닌 앱에서 namespace가 변경된 경우:
-  1. 폴더명을 `{category}.{newNamespace}`로 변경
-  2. app.json의 id를 동일하게 업데이트
-  3. 파일 탐색기 새로고침
-  4. 기존 웹뷰 닫기
-
----
-
-### 15. Route 앱 UI 개선
-
-**변경 사항**:
-
-1. **아이콘 제거**: Route 하위 앱들에서 폴더 아이콘 설정 제거
-   - `src/explorer/fileExplorerProvider.js` - `item.setFolderIcon()` 호출 제거
-
-2. **탭 순서 변경**: Info -> Controller 순서로 표시
-   - `package.json` - Controller를 `navigation@2`로 변경
-
-3. **기본 파일 변경**: Route 앱 클릭 시 Controller 파일 열기
-   - `src/editor/appEditorProvider.js` - `openEditor()` 메소드에서 groupType이 'route'인 경우 controller 파일 우선
-
----
-
-### 16. Portal 카테고리 개선
-
-**변경 사항**:
-
-1. **라벨 변경**: 'portal' -> 'packages'로 표시
-   - `src/explorer/models/categoryHandlers.js` - PortalCategory 생성자 수정
-
-2. **패키지 폴더 내 정렬 및 표시 개선**:
-   - `portal.json` -> `info`로 라벨 변경
-   - 정렬 순서: info > app > route > controller > model > 기타
-   - `src/explorer/fileExplorerProvider.js` - 패키지 폴더 감지 및 정렬 로직 추가
-
----
-
-### 17. Portal Info 에디터 구현
-
-**요구사항**: `portal.json` 파일을 클릭할 때 일반 텍스트 에디터 대신 전용 UI 에디터로 표시
-
-**구현 내용**:
-
-1. **에디터 등록** (`src/editor/appEditorProvider.js`):
-   - `openPortalInfoEditor()` 메소드 추가
-   - Package, Title, Version 필드만 UI에 표시
-   - `use_*` 필드들은 UI에서 숨기고 저장 시 자동으로 `true`로 설정
-
-2. **트리뷰 연동** (`src/explorer/fileExplorerProvider.js`):
-   - `portal.json` 파일 감지 시 라벨을 `info`로 변경
-   - 클릭 시 `wizExplorer.openPortalInfo` 커맨드 실행
-
-3. **커맨드 등록** (`src/extension.js`):
-   - `wizExplorer.openPortalInfo` 커맨드 등록
-
-**저장 시 자동 적용되는 필드**:
-```javascript
-{
-    package: "...",
-    title: "...",
-    version: "...",
-    use_app: true,
-    use_widget: true,
-    use_route: true,
-    use_libs: true,
-    use_styles: true,
-    use_assets: true,
-    use_controller: true,
-    use_model: true
-}
-```
-
----
-
-### 18. AppEditorProvider 분리 (에디터 코드 리팩토링)
-
-**목표**: 기능별로 뒤섞여 있던 AppEditorProvider 코드를 기능 단위로 분리하여 유지보수성 향상
-
-**새로 생성된 에디터 모듈 (`/src/editor/editors/`)**:
-
-| 파일 | 역할 |
-|------|------|
-| `editorBase.js` | 모든 에디터의 공통 기본 클래스 (패널 생성/종료/메시지 처리) |
-| `appEditor.js` | 일반 App (Page, Widget 등) 정보 수정 에디터 |
-| `routeEditor.js` | Route 앱 전용 정보 수정 에디터 (AppEditor 상속) |
-| `portalEditor.js` | Portal Package (portal.json) 정보 수정 에디터 |
-| `portalAppEditor.js` | Portal App 전용 정보 수정 에디터 (AppEditor 상속) |
-| `createEditor.js` | 새 App 생성 에디터 |
-| `createPortalAppEditor.js` | Portal App 생성 에디터 |
-
-**적용된 디자인 패턴**:
-1. **상속 패턴** - EditorBase → AppEditor → RouteEditor
-2. **Facade 패턴** - AppEditorProvider가 각 에디터 인스턴스 관리
-3. **Template Method 패턴** - 공통 로직(패널 생성)은 부모에서, 세부 로직(HTML 생성)은 자식에서 처리
-
-**리팩토링된 AppEditorProvider**:
-- 기존 500줄+ 코드에서 130줄로 대폭 축소
-- HTML 생성, 메시지 핸들링 로직을 각 에디터 클래스로 위임
-- `activeEditor` 프로퍼티로 현재 활성 에디터 인스턴스 추적
-
-**디렉토리 구조 변경**:
-```
-src/editor/
-├── editors/                    # 신규 디렉토리
-│   ├── editorBase.js          # 공통 기본 클래스
-│   ├── appEditor.js           # 일반 앱 에디터
-│   ├── routeEditor.js         # Route 에디터
-│   ├── portalEditor.js        # Portal 에디터
-│   ├── portalAppEditor.js     # Portal App 에디터
-│   ├── createEditor.js        # 앱 생성 에디터
-│   └── createPortalAppEditor.js # Portal App 생성 에디터
-├── appEditorProvider.js       # Facade (리팩토링됨)
-├── appContextListener.js
-└── wizFileSystemProvider.js
-```
-
----
-
-### 19. Portal App 에디터 구현
-
-**요구사항**: Portal 패키지(`src/portal/<package>/app/*`) 내 앱을 위한 전용 Info 에디터
-
-**구현 내용**:
-
-1. **PortalAppEditor 클래스** (`src/editor/editors/portalAppEditor.js`):
-   - AppEditor를 상속하여 Portal App 전용 로직 구현
-   - `mode: 'portal'` 자동 설정
-   - Namespace → Folder Name → ID 자동 동기화
-   - Controller는 해당 패키지의 `controller` 폴더에서 로드
-
-2. **UI 필드**:
-   - Title, Namespace, Category, View URI, Controller
-   - ID와 Template 필드는 자동 관리되어 UI에서 숨김
-
-3. **자동 동기화 로직**:
-   - Namespace 변경 시 폴더명과 ID가 동일하게 변경
-   - Template은 `wiz-portal-<package>-<namespace>` 형식으로 자동 생성
-
----
-
-### 20. Portal App 생성 기능
-
-**요구사항**: Portal 패키지의 `app` 폴더에서 우클릭 → "새 앱 만들기" 기능
-
-**구현 내용**:
-
-1. **CreatePortalAppEditor 클래스** (`src/editor/editors/createPortalAppEditor.js`):
-   - Namespace (필수), Title, Category, View URI, Controller 입력 폼
-   - 생성 시 폴더 구조 및 기본 파일 자동 생성
-
-2. **트리뷰 컨텍스트** (`src/explorer/fileExplorerProvider.js`):
-   - `app` 폴더에 `portalAppGroup` contextValue 설정
-   - `layers` 아이콘 적용 (Source의 page/component 그룹과 동일)
-
-3. **메뉴 등록** (`package.json`):
-   - `portalAppGroup` 컨텍스트에서 "New Portal App" 메뉴 표시
-
-4. **생성되는 파일 구조**:
-```
-src/portal/<package>/app/<namespace>/
-├── app.json      # id, mode, title, namespace, category, viewuri, controller, template
-├── view.pug
-├── view.scss
-└── view.ts
-```
-
----
-
-### 21. Portal Route Controller 경로 수정
-
-**문제**: Portal 패키지 내 Route 앱의 Controller 목록이 `src/controller`를 참조하는 문제
-
-**해결** (`src/editor/editors/routeEditor.js`):
-- `loadFormOptions()` 메소드 오버라이드
-- 경로 구조 분석하여 Portal Route인 경우 `<package>/controller` 폴더 참조
-- 일반 Route인 경우 기존 로직 유지
-
-```javascript
-// Portal Route: .../src/portal/<pkg>/route/<app>
-if (path.basename(greatGrandParentDir) === 'portal') {
-    controllerDir = path.join(grandParentDir, 'controller');
-} else {
-    controllerDir = WizPathUtils.findControllerDir(...);
-}
-```
-
----
-
-### 22. Portal 패키지 폴더 아이콘 통일
-
-**요구사항**: Portal 패키지 내 특수 폴더들에 Source 디렉토리와 동일한 아이콘 적용
-
-**구현** (`src/explorer/fileExplorerProvider.js`, `src/core/constants.js`):
-
-| 폴더 | 아이콘 |
-|------|--------|
-| app | `layers` |
-| route | `circuit-board` |
-| controller | `symbol-method` |
-| model | `symbol-method` |
-| assets | `folder-library` |
-| libs | `library` |
-| styles | `symbol-color` |
-
----
-
-### 23. 탐색기 상단 UI 정리
-
-**변경 사항**:
-
-1. **타이틀 변경** (`package.json`):
-   - viewsContainers title: "Wiz Explorer" → "Project"
-
-2. **트리뷰 타이틀** (`src/extension.js`):
-   - `treeView.title`: "Project: main" → "main" (프로젝트명만 표시)
-
-3. **상단 버튼 정리** (`package.json`):
-   - "새 파일", "새 폴더" 버튼 제거
-   - "새로고침", "프로젝트 전환" 버튼만 유지
-
----
-
-### 24. Source app/route 그룹 제거
-
-**문제**: Source 카테고리에 존재하지 않는 `app/route` 그룹이 표시되는 문제
-
-**해결** (`src/explorer/appPatternProcessor.js`):
-- `TYPES` getter에서 `FLAT_APP_TYPES` 필터링
-- Route는 플랫 구조이므로 app 하위 그룹으로 표시하지 않음
-
-```javascript
-static get TYPES() {
-    return APP_TYPES.filter(type => !FLAT_APP_TYPES.includes(type));
-}
-```
-
----
-
-### 25. Route 앱 생성 기능 구현
-
-**요구사항**: src/route 및 portal/route 폴더에서 우클릭 → "새 Route 만들기" 기능
-
-**구현 내용**:
-
-1. **CreateRouteAppEditor 클래스** (`src/editor/editors/createRouteAppEditor.js`):
-   - ID (폴더명), Title, Route Path, Category, Preview URL, Controller 입력 폼
-   - ID 유효성 검사: 영문 소문자 + 숫자만 허용
-   - `isPortalRoute` 플래그로 Portal/Source Route 구분
-
-2. **트리뷰 컨텍스트**:
-   - Source route 폴더: `routeGroup` contextValue (`src/explorer/models/categoryHandlers.js`)
-   - Portal route 폴더: `portalRouteGroup` contextValue (`src/explorer/fileExplorerProvider.js`)
-
-3. **메뉴 등록** (`package.json`):
-   - `routeGroup`: "New Route" 메뉴
-   - `portalRouteGroup`: "New Portal Route" 메뉴
-
-4. **생성되는 파일 구조**:
-```
-src/route/<id>/   또는   src/portal/<pkg>/route/<id>/
-├── app.json      # id, title, route, category, viewuri, controller
-└── controller.py
-```
-
----
-
-### 26. 드래그 앤 드롭 기능 추가
-
-**요구사항**: 일반 파일/폴더에 대해 드래그 앤 드롭으로 이동 지원
-
-**구현 내용**:
-
-1. **WizDragAndDropController 클래스** (`src/explorer/wizDragAndDropController.js`):
-   - `handleDrag`: 드래그 가능한 아이템 필터링 및 데이터 설정
-   - `handleDrop`: 드롭 시 파일/폴더 이동 처리
-   - `isDraggable`: 드래그 가능 여부 판단
-   - `isDropTarget`: 드롭 대상 유효성 확인
-
-2. **드래그/드롭 제외 대상** (contextValue):
-   - `appGroup`, `appItem`, `portalAppGroup`, `portalRouteGroup`, `routeGroup`, `category`
-
-3. **허용 대상**:
-   - `file`, `folder` (일반 파일/폴더만)
-
-4. **추가 기능**:
-   - 덮어쓰기 확인 다이얼로그
-   - 자기 자신 안으로 이동 방지
-
----
-
-### 27. 다중 선택 기능 추가
-
-**구현** (`src/extension.js`):
-```javascript
-const treeView = vscode.window.createTreeView('wizExplorer', {
-    treeDataProvider: fileExplorerProvider,
-    showCollapseAll: true,
-    canSelectMany: true,
-    dragAndDropController: dragAndDropController
-});
-```
-
----
-
-### 28. Portal 기본 폴더 자동 표시
-
-**요구사항**: Portal 패키지에서 기본 구조 폴더들이 없어도 항상 표시
-
-**구현** (`src/explorer/fileExplorerProvider.js`):
-
-1. **기본 폴더 목록**:
-   - `info`, `app`, `route`, `controller`, `model`, `assets`, `libs`, `styles`
-
-2. **가상 아이템 추가**:
-   - 실제로 존재하지 않는 폴더/파일은 `(create)` description과 함께 표시
-   - `portal.json`이 없으면 가상 `info` 아이템 추가
-
-3. **자동 생성**:
-   - 가상 폴더를 확장(클릭)하면 실제 폴더가 자동으로 생성됨
-
----
-
-## 주요 코드 변경 이력
+## 현재 지원 기능
 
 ### src/core/ (신규)
 ```
@@ -625,12 +151,82 @@ Project (프로젝트명)
 
 ## 향후 개선 사항
 
+### 기본 기능 완성
 - [ ] 패키지 생성 기능
 - [x] Route 앱 생성 기능 (Source/Portal Route 지원)
 - [x] Portal App 생성 기능
 - [x] 드래그 앤 드롭 파일 이동
 - [x] 다중 파일 선택
 - [x] Portal 기본 폴더 자동 표시
-- [ ] 검색 기능
-- [ ] Git 상태 표시
-- [ ] 프리뷰 기능 연동
+- [ ] 검색 기능 (파일/앱 이름 빠른 검색)
+- [ ] Git 상태 표시 (변경/추가/삭제 파일 아이콘)
+
+### 빌드 & 개발 워크플로우
+- [ ] Wiz CLI 명령어 연동
+  - [ ] 빌드 실행 (`wiz build`)
+  - [ ] 개발 서버 시작/중지 (`wiz run`)
+  - [ ] 배포 명령 (`wiz deploy`)
+  - [ ] 상태바에 빌드 상태 표시
+  - [ ] 빌드 에러/경고 Problems 패널 연동
+- [ ] Wiz API 서버 연동
+  - [ ] 실시간 앱 목록 동기화
+  - [ ] 서버 상태 모니터링
+  - [ ] Hot Reload 지원
+
+### MCP (Model Context Protocol) 기능
+- [ ] VSCode WIZ MCP Server 구현
+  - [ ] Wiz 프로젝트 구조 분석 제공
+  - [ ] App/Route/Controller 정보 컨텍스트 제공
+  - [ ] 코드 생성 지원 (템플릿 기반)
+  - [ ] AI 기반 앱 구조 추천
+- [ ] GitHub Copilot 연동
+  - [ ] Wiz Framework 특화 코드 제안
+  - [ ] app.json 스키마 자동완성
+
+### 에디터 & 뷰어 기능
+- [ ] 프리뷰 기능
+  - [ ] 앱 실시간 미리보기 (iframe)
+  - [ ] Route 경로 시뮬레이션
+  - [ ] 모바일/태블릿 뷰포트 전환
+- [ ] 코드 에디터 개선
+  - [ ] Pug/HTML 구문 강조 개선
+  - [ ] SCSS IntelliSense
+  - [ ] Python Controller 자동완성
+  - [ ] TypeScript/JavaScript 타입 정의
+
+### 디버깅 & 테스팅
+- [ ] 디버거 연동
+  - [ ] Python Controller 디버깅
+  - [ ] 브레이크포인트 지원
+  - [ ] 변수 Inspector
+- [ ] 테스트 러너
+  - [ ] 단위 테스트 실행
+  - [ ] E2E 테스트 지원
+  - [ ] 테스트 커버리지 표시
+
+### 협업 & 문서화
+- [ ] 앱 문서 자동 생성
+  - [ ] app.json 기반 문서화
+  - [ ] API 엔드포인트 목록 추출
+  - [ ] 의존성 그래프 시각화
+- [ ] 팀 협업 기능
+  - [ ] 앱 변경 이력 추적
+  - [ ] 코드 리뷰 연동
+  - [ ] 배포 승인 워크플로우
+
+### 성능 & 최적화
+- [ ] 대규모 프로젝트 지원
+  - [ ] 가상 스크롤링 (수백개 앱 처리)
+  - [ ] 지연 로딩 (Lazy Loading)
+  - [ ] 캐싱 전략 개선
+- [ ] 번들 크기 최적화 분석
+- [ ] 의존성 중복 감지
+
+### 확장성
+- [ ] 플러그인 시스템
+  - [ ] 커스텀 App 타입 등록
+  - [ ] 에디터 확장 API
+  - [ ] 테마/아이콘 커스터마이징
+- [ ] 설정 관리
+  - [ ] 프로젝트별 설정 프로파일
+  - [ ] 팀 공유 설정 지원

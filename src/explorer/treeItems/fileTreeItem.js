@@ -18,6 +18,7 @@ class FileTreeItem extends vscode.TreeItem {
 
         this.isDirectory = isDirectory;
         this.resourceUri = vscode.Uri.file(resourceUri);
+        this.id = this.resourceUri.fsPath;
         this.tooltip = resourceUri;
 
         if (!isDirectory) {

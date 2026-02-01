@@ -4,6 +4,7 @@
  */
 
 const vscode = require('vscode');
+const path = require('path');
 const WizPathUtils = require('./pathUtils');
 
 class WizUriFactory {
@@ -34,7 +35,15 @@ class WizUriFactory {
      * @returns {vscode.Uri}
      */
     static fromAppPath(appPath, filePath, typeLabel) {
-        const { category, appTitle } = WizPathUtils.parseAppFolder(appPath);
+        let { category, appTitle } = WizPathUtils.parseAppFolder(appPath);
+        
+        // Portal App인 경우 category(portal-app) 대신 패키지명 표시
+        if (category === 'portal-app') {
+            const parentDir = path.dirname(appPath); // app
+            const packagePath = path.dirname(parentDir); // package
+            category = path.basename(packagePath);
+        }
+
         return this.create(filePath, category, appTitle, typeLabel);
     }
 }

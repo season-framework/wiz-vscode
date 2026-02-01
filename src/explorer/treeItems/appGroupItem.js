@@ -42,6 +42,21 @@ class AppGroupItem extends vscode.TreeItem {
         const treeItem = new FileTreeItem(label, fullPath, stat.isDirectory());
         
         if (stat.isDirectory()) {
+            let itemLabel = label;
+
+            try {
+                const appJsonPath = path.join(fullPath, 'app.json');
+                if (fs.existsSync(appJsonPath)) {
+                    const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf8'));
+                    if (appJson.title) {
+                        itemLabel = appJson.title;
+                    }
+                }
+            } catch (e) {
+                // Ignore read errors
+            }
+
+            treeItem.label = itemLabel;
             treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
             treeItem.command = {
                 command: 'wizExplorer.openAppEditor',
@@ -50,7 +65,7 @@ class AppGroupItem extends vscode.TreeItem {
             };
             treeItem.contextValue = 'appItem';
         }
-        
+
         return treeItem;
     }
 }

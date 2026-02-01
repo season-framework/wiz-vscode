@@ -6,6 +6,9 @@
 const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
+const cp = require('child_process');
+const util = require('util');
+const exec = util.promisify(cp.exec);
 
 const FileExplorerProvider = require('./explorer/fileExplorerProvider');
 const AppEditorProvider = require('./editor/appEditorProvider');
@@ -81,6 +84,34 @@ function activate(context) {
     });
     context.subscriptions.push(treeView);
     updateProjectRoot();
+
+    // Auto-reveal on file change
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(async editor => {
+            if (editor && treeView.visible) {
+                const uri = editor.document.uri;
+                let filePath;
+
+                if (uri.scheme === 'file') {
+                    filePath = uri.fsPath;
+                } else if (uri.scheme === 'wiz') {
+                    filePath = WizPathUtils.getRealPathFromUri(uri);
+                }
+
+                if (filePath) {
+                    try {
+                        const item = await fileExplorerProvider.findItem(filePath);
+                        if (item) {
+                            treeView.reveal(item, { select: true, focus: false, expand: true });
+                        }
+                    } catch (e) {
+                        // Ignore reveal errors
+                    }
+                }
+            }
+        })
+    );
+
 
     // ==================== File Switching ====================
     async function switchFile(type) {
@@ -196,26 +227,133 @@ function activate(context) {
 
             const projectBasePath = path.join(workspaceRoot, 'project');
             if (!fs.existsSync(projectBasePath)) {
-                vscode.window.showErrorMessage(`'project' 폴더를 찾을 수 없습니다`);
-                return;
+                try {
+                    fs.mkdirSync(projectBasePath, { recursive: true });
+                } catch (e) {
+                    vscode.window.showErrorMessage(`'project' 폴더를 생성할 수 없습니다.`);
+                    return;
+                }
             }
 
             const projects = fs.readdirSync(projectBasePath)
-                .filter(item => fs.statSync(path.join(projectBasePath, item)).isDirectory());
+                .filter(item => {
+                    try {
+                        return fs.statSync(path.join(projectBasePath, item)).isDirectory();
+                    } catch (e) { return false; }
+                });
 
-            if (projects.length === 0) {
-                vscode.window.showInformationMessage("프로젝트가 없습니다.");
-                return;
-            }
+            const items = [
+                { label: '$(cloud-download) 프로젝트 불러오기...', description: 'Git 저장소 복제', action: 'import' },
+                { label: '$(trash) 프로젝트 삭제하기...', description: '로컬 프로젝트 폴더 삭제', action: 'delete' },
+                { label: '', kind: vscode.QuickPickItemKind.Separator },
+                ...projects.map(p => ({ label: `$(folder) ${p}`, action: 'switch', projectName: p }))
+            ];
 
-            const selected = await vscode.window.showQuickPick(projects, {
-                placeHolder: '프로젝트 선택',
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: '프로젝트 선택 또는 관리',
                 title: '프로젝트 전환'
             });
 
-            if (selected) {
-                currentProject = selected;
+            if (!selected) return;
+
+            if (selected.action === 'switch') {
+                currentProject = selected.projectName;
                 updateProjectRoot();
+            } else if (selected.action === 'delete') {
+                const projectToDelete = await vscode.window.showQuickPick(projects, {
+                    placeHolder: '삭제할 프로젝트 선택 (주의: 실행 즉시 삭제됩니다)',
+                    title: '프로젝트 삭제'
+                });
+
+                if (!projectToDelete) return;
+
+                const confirm = await vscode.window.showWarningMessage(
+                    `경고: 프로젝트 '${projectToDelete}'와(과) 포함된 모든 파일이 영구적으로 삭제됩니다. 계속하시겠습니까?`,
+                    '삭제', '취소'
+                );
+
+                if (confirm !== '삭제') return;
+
+                vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: `프로젝트 '${projectToDelete}' 삭제 중...`,
+                    cancellable: false
+                }, async () => {
+                    try {
+                        const targetPath = path.join(projectBasePath, projectToDelete);
+                        // Using rm -rf implementation
+                        fs.rmSync(targetPath, { recursive: true, force: true });
+                        vscode.window.showInformationMessage(`프로젝트 '${projectToDelete}'가 삭제되었습니다.`);
+                        
+                        // If deleted project was active, switch to another or clear
+                        if (currentProject === projectToDelete) {
+                             currentProject = 'main'; // Fallback or handle appropriately
+                             // Check if main exists, if not pick first available, else none
+                             if (!fs.existsSync(path.join(projectBasePath, 'main'))) {
+                                 // Simple re-check
+                                 const remaining = fs.readdirSync(projectBasePath).filter(f =>  fs.statSync(path.join(projectBasePath, f)).isDirectory());
+                                 currentProject = remaining.length > 0 ? remaining[0] : null;
+                             }
+                             updateProjectRoot();
+                        }
+                    } catch (err) {
+                        vscode.window.showErrorMessage(`프로젝트 삭제 실패: ${err.message}`);
+                    }
+                });
+
+            } else if (selected.action === 'import') {
+                // 1. Input Project Name
+                const projectName = await vscode.window.showInputBox({
+                    title: '새 프로젝트 이름 입력',
+                    prompt: '영문 소문자와 숫자만 허용됩니다.',
+                    placeHolder: 'projectname',
+                    validateInput: (value) => {
+                        if (!/^[a-z0-9]+$/.test(value)) {
+                            return '영문 소문자와 숫자만 허용됩니다.';
+                        }
+                        if (fs.existsSync(path.join(projectBasePath, value))) {
+                            return '이미 존재하는 프로젝트 이름입니다.';
+                        }
+                        return null;
+                    }
+                });
+
+                if (!projectName) return;
+
+                // 2. Input Git URL
+                const gitUrl = await vscode.window.showInputBox({
+                    title: 'Git 저장소 주소 입력',
+                    prompt: '복제할 Git 리포지토리의 URL을 입력하세요.',
+                    placeHolder: 'https://github.com/username/repo.git',
+                    ignoreFocusOut: true
+                });
+
+                if (!gitUrl) return;
+
+                // 3. Clone
+                const targetPath = path.join(projectBasePath, projectName);
+                
+                vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: `프로젝트 '${projectName}' 불러오는 중...`,
+                    cancellable: false
+                }, async (progress) => {
+                    try {
+                        await exec(`git clone "${gitUrl}" "${targetPath}"`);
+                        
+                        const choice = await vscode.window.showInformationMessage(
+                            `프로젝트 '${projectName}'를 성공적으로 불러왔습니다. 전환하시겠습니까?`,
+                            '예', '아니오'
+                        );
+                        
+                        if (choice === '예') {
+                            currentProject = projectName;
+                            updateProjectRoot();
+                        }
+                    } catch (err) {
+                        vscode.window.showErrorMessage(`프로젝트 불러오기 실패: ${err.message}`);
+                    }
+                });
             }
         }],
 

@@ -7,7 +7,7 @@ const AppGroupItem = require('./treeItems/appGroupItem');
 const EmptyItem = require('./treeItems/emptyItem');
 const AppPatternProcessor = require('./appPatternProcessor');
 const { SourceCategory, PortalCategory, ProjectCategory } = require('./models/categoryHandlers');
-const { FLAT_APP_TYPES } = require('../core');
+const { FLAT_APP_TYPES, APP_TYPES, WizPathUtils } = require('../core');
 
 class FileExplorerProvider {
     constructor(workspaceRoot, extensionPath) {
@@ -29,6 +29,74 @@ class FileExplorerProvider {
 
     refresh() {
         this._onDidChangeTreeData.fire();
+    }
+
+    findItem(filePath) {
+        if (!fs.existsSync(filePath)) return null;
+
+        // Try to find if this file is part of an App and return the App Item
+        let currentPath = filePath;
+        const workspaceRoot = this.workspaceRoot;
+        
+        while (currentPath && currentPath !== workspaceRoot && path.dirname(currentPath) !== currentPath) {
+             // 1. Check with Path Utilities (Handles Route, Portal App, etc.)
+             const { isWizApp } = WizPathUtils.parseAppFolder(currentPath);
+             if (isWizApp) {
+                 return new FileTreeItem(path.basename(currentPath), currentPath, true);
+             }
+
+             // 2. Check Standard App Structure (src/{type}/{name})
+             // This handles cases like src/page/home which WizPathUtils might miss
+             const parentDir = path.dirname(currentPath);
+             const parentName = path.basename(parentDir);
+             if (APP_TYPES.includes(parentName)) {
+                  // Ensure we are in a valid structure (children of src or src/app or nested comp)
+                  return new FileTreeItem(path.basename(currentPath), currentPath, true);
+             }
+             
+             currentPath = parentDir;
+        }
+
+        const stat = fs.statSync(filePath);
+        return new FileTreeItem(path.basename(filePath), filePath, stat.isDirectory());
+    }
+
+    getParent(element) {
+        if (!element || this.categories.includes(element)) return null;
+
+        const fsPath = element.resourceUri ? element.resourceUri.fsPath : null;
+        if (!fsPath) return null;
+
+        const parentPath = path.dirname(fsPath);
+        const name = path.basename(parentPath);
+        const grandPath = path.dirname(parentPath);
+        
+        const srcPath = path.join(this.workspaceRoot, 'src');
+        const portalPath = path.join(srcPath, 'portal');
+
+        // 1. Direct Category Children
+        if (parentPath === this.workspaceRoot) {
+            return this.categories.find(c => c.id === 'project');
+        }
+        if (parentPath === srcPath) {
+             return this.categories.find(c => c.id === 'source');
+        }
+        if (parentPath === portalPath) {
+             return this.categories.find(c => c.id === 'portal');
+        }
+
+        // 2. Handling 'app' folder flattening (Source)
+        if (name === 'app' && grandPath === srcPath) {
+             return this.categories.find(c => c.id === 'source');
+        }
+
+        // 3. Handling 'app' folder flattening (Portal)
+        if (name === 'app' && path.dirname(grandPath) === portalPath) {
+            return new FileTreeItem(path.basename(grandPath), grandPath, true);
+        }
+
+        // 4. Default
+        return new FileTreeItem(path.basename(parentPath), parentPath, true);
     }
 
     getTreeItem(element) {
