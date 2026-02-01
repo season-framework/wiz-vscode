@@ -66,11 +66,15 @@ class FileExplorerProvider {
             // Check if inside a package folder (child of src/portal)
             const portalPath = path.join(this.workspaceRoot, 'src', 'portal');
             if (path.dirname(dirPath) === portalPath) {
-                // Rename portal.json to info
+                // Rename portal.json to info and set command to open Portal Info Editor
                 const infoItem = items.find(i => i.label === 'portal.json');
                 if (infoItem) {
                     infoItem.label = 'info';
-                    infoItem.command.title = 'Open Info';
+                    infoItem.command = {
+                        command: 'wizExplorer.openPortalInfo',
+                        title: 'Open Portal Info',
+                        arguments: [infoItem.resourceUri.fsPath]
+                    };
                 }
 
                 // Sort: info, app, route, controller, model, then others

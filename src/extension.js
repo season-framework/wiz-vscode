@@ -142,6 +142,7 @@ function activate(context) {
         // Core commands
         ['wizExplorer.refresh', () => fileExplorerProvider.refresh()],
         ['wizExplorer.openAppEditor', (appPath, groupType) => appEditorProvider.openEditor(appPath, groupType)],
+        ['wizExplorer.openPortalInfo', (portalJsonPath) => appEditorProvider.openPortalInfoEditor(portalJsonPath)],
         
         // File switch commands
         ['wizExplorer.switch.info', () => switchFile('info')],

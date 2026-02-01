@@ -30,6 +30,10 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 
 ### Portal/Packages 개선
 16. **Portal 카테고리 개선** - 라벨을 packages로 변경, 패키지 폴더 정렬 구현
+17. **Portal Info 에디터 구현** - portal.json 전용 Webview 에디터 추가
+
+### 에디터 코드 리팩토링
+18. **AppEditorProvider 분리** - 기능별 에디터 클래스 분리 및 모듈화
 
 ---
 
@@ -231,6 +235,83 @@ generateRouteInfoHtml(data, controllers, appPath) {
 
 ---
 
+### 17. Portal Info 에디터 구현
+
+**요구사항**: `portal.json` 파일을 클릭할 때 일반 텍스트 에디터 대신 전용 UI 에디터로 표시
+
+**구현 내용**:
+
+1. **에디터 등록** (`src/editor/appEditorProvider.js`):
+   - `openPortalInfoEditor()` 메소드 추가
+   - Package, Title, Version 필드만 UI에 표시
+   - `use_*` 필드들은 UI에서 숨기고 저장 시 자동으로 `true`로 설정
+
+2. **트리뷰 연동** (`src/explorer/fileExplorerProvider.js`):
+   - `portal.json` 파일 감지 시 라벨을 `info`로 변경
+   - 클릭 시 `wizExplorer.openPortalInfo` 커맨드 실행
+
+3. **커맨드 등록** (`src/extension.js`):
+   - `wizExplorer.openPortalInfo` 커맨드 등록
+
+**저장 시 자동 적용되는 필드**:
+```javascript
+{
+    package: "...",
+    title: "...",
+    version: "...",
+    use_app: true,
+    use_widget: true,
+    use_route: true,
+    use_libs: true,
+    use_styles: true,
+    use_assets: true,
+    use_controller: true,
+    use_model: true
+}
+```
+
+---
+
+### 18. AppEditorProvider 분리 (에디터 코드 리팩토링)
+
+**목표**: 기능별로 뒤섞여 있던 AppEditorProvider 코드를 기능 단위로 분리하여 유지보수성 향상
+
+**새로 생성된 에디터 모듈 (`/src/editor/editors/`)**:
+
+| 파일 | 역할 |
+|------|------|
+| `editorBase.js` | 모든 에디터의 공통 기본 클래스 (패널 생성/종료/메시지 처리) |
+| `appEditor.js` | 일반 App (Page, Widget 등) 정보 수정 에디터 |
+| `routeEditor.js` | Route 앱 전용 정보 수정 에디터 (AppEditor 상속) |
+| `portalEditor.js` | Portal Package (portal.json) 정보 수정 에디터 |
+| `createEditor.js` | 새 App 생성 에디터 |
+
+**적용된 디자인 패턴**:
+1. **상속 패턴** - EditorBase → AppEditor → RouteEditor
+2. **Facade 패턴** - AppEditorProvider가 각 에디터 인스턴스 관리
+3. **Template Method 패턴** - 공통 로직(패널 생성)은 부모에서, 세부 로직(HTML 생성)은 자식에서 처리
+
+**리팩토링된 AppEditorProvider**:
+- 기존 500줄+ 코드에서 130줄로 대폭 축소
+- HTML 생성, 메시지 핸들링 로직을 각 에디터 클래스로 위임
+- `activeEditor` 프로퍼티로 현재 활성 에디터 인스턴스 추적
+
+**디렉토리 구조 변경**:
+```
+src/editor/
+├── editors/                    # 신규 디렉토리
+│   ├── editorBase.js          # 공통 기본 클래스
+│   ├── appEditor.js           # 일반 앱 에디터
+│   ├── routeEditor.js         # Route 에디터
+│   ├── portalEditor.js        # Portal 에디터
+│   └── createEditor.js        # 앱 생성 에디터
+├── appEditorProvider.js       # Facade (리팩토링됨)
+├── appContextListener.js
+└── wizFileSystemProvider.js
+```
+
+---
+
 ## 주요 코드 변경 이력
 
 ### src/core/ (신규)
@@ -245,9 +326,14 @@ src/core/
 ```
 
 ### src/editor/
-- `appEditorProvider.js` - Route 지원, Info 에디터, 상태 복원
+- `appEditorProvider.js` - Facade 패턴, 에디터 인스턴스 관리
 - `appContextListener.js` - appCategory 컨텍스트 추가
 - `wizFileSystemProvider.js` - 경로 유틸리티 사용
+- `editors/editorBase.js` - 공통 Webview 패널 관리
+- `editors/appEditor.js` - 일반 앱 Info 에디터
+- `editors/routeEditor.js` - Route 앱 Info 에디터
+- `editors/portalEditor.js` - Portal Info 에디터
+- `editors/createEditor.js` - 앱 생성 에디터
 
 ### src/explorer/
 - `fileExplorerProvider.js` - Flat App Types, 패키지 폴더 정렬
