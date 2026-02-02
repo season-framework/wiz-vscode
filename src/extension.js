@@ -1431,45 +1431,51 @@ function activate(context) {
 
         // Create App shortcuts from command palette
         ['wizExplorer.createPage', async () => {
-            const parentPath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'page');
-            if (!fs.existsSync(parentPath)) {
-                fs.mkdirSync(parentPath, { recursive: true });
-            }
+            const parentPath = getAppParentPath();
             await createStandardApp('page', parentPath, fileExplorerProvider);
         }],
 
         ['wizExplorer.createComponent', async () => {
-            const parentPath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'component');
-            if (!fs.existsSync(parentPath)) {
-                fs.mkdirSync(parentPath, { recursive: true });
-            }
+            const parentPath = getAppParentPath();
             await createStandardApp('component', parentPath, fileExplorerProvider);
         }],
 
         ['wizExplorer.createWidget', async () => {
-            const parentPath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'widget');
-            if (!fs.existsSync(parentPath)) {
-                fs.mkdirSync(parentPath, { recursive: true });
-            }
+            const parentPath = getAppParentPath();
             await createStandardApp('widget', parentPath, fileExplorerProvider);
         }],
 
         ['wizExplorer.createLayout', async () => {
-            const parentPath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'layout');
-            if (!fs.existsSync(parentPath)) {
-                fs.mkdirSync(parentPath, { recursive: true });
-            }
+            const parentPath = getAppParentPath();
             await createStandardApp('layout', parentPath, fileExplorerProvider);
         }],
 
         ['wizExplorer.createRoute', async () => {
-            const parentPath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'route');
-            if (!fs.existsSync(parentPath)) {
-                fs.mkdirSync(parentPath, { recursive: true });
+            const srcPath = path.join(fileExplorerProvider.workspaceRoot, 'src');
+            const routePath = path.join(srcPath, 'route');
+            if (!fs.existsSync(routePath)) {
+                fs.mkdirSync(routePath, { recursive: true });
             }
-            await createRoute(parentPath, false, fileExplorerProvider);
+            await createRoute(routePath, false, fileExplorerProvider);
         }]
     ];
+
+    // Helper: Get app parent path (src/app if exists, otherwise src)
+    function getAppParentPath() {
+        const srcPath = path.join(fileExplorerProvider.workspaceRoot, 'src');
+        const appPath = path.join(srcPath, 'app');
+        
+        // src/app 폴더가 있으면 그 안에 생성, 없으면 src에 생성
+        if (fs.existsSync(appPath) && fs.statSync(appPath).isDirectory()) {
+            return appPath;
+        }
+        
+        // src/app 폴더가 없으면 src 폴더에 생성
+        if (!fs.existsSync(srcPath)) {
+            fs.mkdirSync(srcPath, { recursive: true });
+        }
+        return srcPath;
+    }
 
     let clipboard = null;
 
