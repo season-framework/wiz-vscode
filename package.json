@@ -100,10 +100,7 @@
         "command": "wizExplorer.createComponent",
         "title": "Wiz: Create New Component"
       },
-      {
-        "command": "wizExplorer.createWidget",
-        "title": "Wiz: Create New Widget"
-      },
+
       {
         "command": "wizExplorer.createLayout",
         "title": "Wiz: Create New Layout"
@@ -448,10 +445,7 @@
           "command": "wizExplorer.createComponent",
           "when": "workspaceFolderCount > 0"
         },
-        {
-          "command": "wizExplorer.createWidget",
-          "when": "workspaceFolderCount > 0"
-        },
+
         {
           "command": "wizExplorer.createLayout",
           "when": "workspaceFolderCount > 0"

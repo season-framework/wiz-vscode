@@ -1440,11 +1440,6 @@ function activate(context) {
             await createStandardApp('component', parentPath, fileExplorerProvider);
         }],
 
-        ['wizExplorer.createWidget', async () => {
-            const parentPath = getAppParentPath();
-            await createStandardApp('widget', parentPath, fileExplorerProvider);
-        }],
-
         ['wizExplorer.createLayout', async () => {
             const parentPath = getAppParentPath();
             await createStandardApp('layout', parentPath, fileExplorerProvider);
