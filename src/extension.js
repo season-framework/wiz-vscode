@@ -1431,27 +1431,43 @@ function activate(context) {
 
         // Create App shortcuts from command palette
         ['wizExplorer.createPage', async () => {
-            const parentPath = getAppParentPath();
-            await createStandardApp('page', parentPath, fileExplorerProvider);
+            const location = await selectAppLocation('page');
+            if (!location) return;
+            
+            if (location.type === 'source') {
+                await createStandardApp('page', location.path, fileExplorerProvider);
+            } else {
+                await createPortalApp(location.path, fileExplorerProvider);
+            }
         }],
 
         ['wizExplorer.createComponent', async () => {
-            const parentPath = getAppParentPath();
-            await createStandardApp('component', parentPath, fileExplorerProvider);
+            const location = await selectAppLocation('component');
+            if (!location) return;
+            
+            if (location.type === 'source') {
+                await createStandardApp('component', location.path, fileExplorerProvider);
+            } else {
+                await createPortalApp(location.path, fileExplorerProvider);
+            }
         }],
 
         ['wizExplorer.createLayout', async () => {
-            const parentPath = getAppParentPath();
-            await createStandardApp('layout', parentPath, fileExplorerProvider);
+            const location = await selectAppLocation('layout');
+            if (!location) return;
+            
+            if (location.type === 'source') {
+                await createStandardApp('layout', location.path, fileExplorerProvider);
+            } else {
+                await createPortalApp(location.path, fileExplorerProvider);
+            }
         }],
 
         ['wizExplorer.createRoute', async () => {
-            const srcPath = path.join(fileExplorerProvider.workspaceRoot, 'src');
-            const routePath = path.join(srcPath, 'route');
-            if (!fs.existsSync(routePath)) {
-                fs.mkdirSync(routePath, { recursive: true });
-            }
-            await createRoute(routePath, false, fileExplorerProvider);
+            const location = await selectRouteLocation();
+            if (!location) return;
+            
+            await createRoute(location.path, location.type === 'package', fileExplorerProvider);
         }]
     ];
 
@@ -1470,6 +1486,126 @@ function activate(context) {
             fs.mkdirSync(srcPath, { recursive: true });
         }
         return srcPath;
+    }
+
+    // Helper: Get portal packages list
+    function getPortalPackages() {
+        const portalPath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'portal');
+        if (!fs.existsSync(portalPath)) return [];
+        
+        try {
+            return fs.readdirSync(portalPath, { withFileTypes: true })
+                .filter(entry => entry.isDirectory())
+                .map(entry => entry.name);
+        } catch (e) {
+            return [];
+        }
+    }
+
+    // Helper: Select app location (Source or Package)
+    async function selectAppLocation(appType) {
+        const packages = getPortalPackages();
+        
+        const locationItems = [
+            { label: '$(folder) Source', description: 'src 폴더에 생성', type: 'source' }
+        ];
+        
+        if (packages.length > 0) {
+            locationItems.push({ label: '$(package) Package', description: 'Portal 패키지에 생성', type: 'package' });
+        }
+
+        // 패키지가 없으면 바로 Source 선택
+        if (packages.length === 0) {
+            return { type: 'source', path: getAppParentPath() };
+        }
+
+        const locationChoice = await vscode.window.showQuickPick(locationItems, {
+            title: `${appType.charAt(0).toUpperCase() + appType.slice(1)} 생성 위치 선택`,
+            placeHolder: '앱을 생성할 위치를 선택하세요'
+        });
+        
+        if (!locationChoice) return null;
+        
+        if (locationChoice.type === 'source') {
+            return { type: 'source', path: getAppParentPath() };
+        }
+        
+        // Package 선택
+        const packageItems = packages.map(pkg => ({
+            label: `$(package) ${pkg}`,
+            value: pkg
+        }));
+        
+        const selectedPackage = await vscode.window.showQuickPick(packageItems, {
+            title: '패키지 선택',
+            placeHolder: '앱을 생성할 패키지를 선택하세요'
+        });
+        
+        if (!selectedPackage) return null;
+        
+        const packageAppPath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'portal', selectedPackage.value, 'app');
+        if (!fs.existsSync(packageAppPath)) {
+            fs.mkdirSync(packageAppPath, { recursive: true });
+        }
+        
+        return { type: 'package', path: packageAppPath };
+    }
+
+    // Helper: Select route location (Source or Package)
+    async function selectRouteLocation() {
+        const packages = getPortalPackages();
+        
+        const locationItems = [
+            { label: '$(folder) Source', description: 'src/route 폴더에 생성', type: 'source' }
+        ];
+        
+        if (packages.length > 0) {
+            locationItems.push({ label: '$(package) Package', description: 'Portal 패키지에 생성', type: 'package' });
+        }
+
+        // 패키지가 없으면 바로 Source 선택
+        if (packages.length === 0) {
+            const routePath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'route');
+            if (!fs.existsSync(routePath)) {
+                fs.mkdirSync(routePath, { recursive: true });
+            }
+            return { type: 'source', path: routePath };
+        }
+
+        const locationChoice = await vscode.window.showQuickPick(locationItems, {
+            title: 'Route 생성 위치 선택',
+            placeHolder: '라우트를 생성할 위치를 선택하세요'
+        });
+        
+        if (!locationChoice) return null;
+        
+        if (locationChoice.type === 'source') {
+            const routePath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'route');
+            if (!fs.existsSync(routePath)) {
+                fs.mkdirSync(routePath, { recursive: true });
+            }
+            return { type: 'source', path: routePath };
+        }
+        
+        // Package 선택
+        const packageItems = packages.map(pkg => ({
+            label: `$(package) ${pkg}`,
+            value: pkg
+        }));
+        
+        const selectedPackage = await vscode.window.showQuickPick(packageItems, {
+            title: '패키지 선택',
+            placeHolder: '라우트를 생성할 패키지를 선택하세요'
+        });
+        
+        if (!selectedPackage) return null;
+        
+        const packageRoutePath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'portal', selectedPackage.value, 'route');
+        if (!fs.existsSync(packageRoutePath)) {
+            fs.mkdirSync(packageRoutePath, { recursive: true });
+        }
+        
+        return { type: 'package', path: packageRoutePath };
     }
 
     let clipboard = null;
