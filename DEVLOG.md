@@ -73,6 +73,7 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 
 ### 커맨드 팔레트 지원
 - [037](./devlog/037-command-palette.md) - 커맨드 팔레트에서 주요 기능 접근 지원
+- [038](./devlog/038-command-palette-improvements.md) - 커맨드 팔레트 기능 개선 및 버그 수정
 
 ---
 
