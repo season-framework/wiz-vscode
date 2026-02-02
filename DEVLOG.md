@@ -62,6 +62,15 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 - [032](./devlog/032-project-deletion.md) - 프로젝트 삭제 기능 추가
 - [033](./devlog/033-app-title-display.md) - App 트리 아이템 표기 개선
 
+### 패키지 관리 및 빌드
+- [034](./devlog/034-package-management.md) - 패키지 생성/내보내기, 빌드 트리거, App/Route 생성 다이얼로그 방식 변경
+
+### View Type 기능
+- [035](./devlog/035-view-type-selection.md) - View Type 선택 기능 (pug/html), 기본 타입 HTML로 변경
+
+### 프로젝트 내보내기/가져오기
+- [036](./devlog/036-project-export-import.md) - 프로젝트 내보내기 및 .wizproject 파일 가져오기 기능
+
 ---
 
 ## 현재 지원 기능
@@ -86,9 +95,6 @@ src/core/
 - `editors/routeEditor.js` - Route 앱 Info 에디터
 - `editors/portalEditor.js` - Portal Info 에디터
 - `editors/portalAppEditor.js` - Portal App 에디터
-- `editors/createEditor.js` - 앱 생성 에디터
-- `editors/createPortalAppEditor.js` - Portal App 생성 에디터
-- `editors/createRouteAppEditor.js` - Route 생성 에디터
 
 ### src/explorer/
 - `fileExplorerProvider.js` - Flat App Types, 패키지 폴더 정렬, 가상 폴더 지원

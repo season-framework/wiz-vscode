@@ -36,12 +36,17 @@ class PortalAppEditor extends AppEditor {
         
         const controllers = WizPathUtils.loadControllers(controllerDir);
 
+        // Detect current view type (pug or html)
+        const hasPug = fs.existsSync(path.join(this.appPath, 'view.pug'));
+        const hasHtml = fs.existsSync(path.join(this.appPath, 'view.html'));
+        const currentViewType = hasPug ? 'pug' : (hasHtml ? 'html' : 'html');
+
         // Portal Apps don't utilize layouts
-        return { layouts: [], isPage: false, controllers, category: 'portal-app' };
+        return { layouts: [], isPage: false, controllers, category: 'portal-app', currentViewType };
     }
 
     // Override generateHtml to show Portal App specific fields
-    generateHtml(data, { controllers }) {
+    generateHtml(data, { controllers, currentViewType }) {
         const bodyContent = `
             <div class="container">
                 <h2>Portal App Info</h2>
@@ -50,6 +55,13 @@ class PortalAppEditor extends AppEditor {
                 ${WebviewTemplates.formGroupInput('category', 'Category', data.category || 'editor')}
                 ${WebviewTemplates.formGroupInput('viewuri', 'View URI', data.viewuri || '')}
                 ${WebviewTemplates.formGroupSelect('controller', 'Controller', controllers, data.controller || '')}
+                <div class="form-group">
+                    <label>View Type</label>
+                    <select id="viewType">
+                        <option value="pug" ${currentViewType === 'pug' ? 'selected' : ''}>Pug</option>
+                        <option value="html" ${currentViewType === 'html' ? 'selected' : ''}>HTML</option>
+                    </select>
+                </div>
                 
                 <div class="btn-group">
                     <button class="btn-secondary" onclick="save()">Update</button>
@@ -70,7 +82,8 @@ class PortalAppEditor extends AppEditor {
                     namespace: document.getElementById('namespace').value,
                     category: document.getElementById('category').value,
                     viewuri: document.getElementById('viewuri').value,
-                    controller: document.getElementById('controller').value
+                    controller: document.getElementById('controller').value,
+                    viewType: document.getElementById('viewType').value
                 };
             }
 
@@ -173,8 +186,15 @@ class PortalAppEditor extends AppEditor {
             // Ensure mode is portal
             newData.mode = 'portal';
 
+            // Handle View Type change (pug <-> html)
+            if (data.viewType) {
+                const targetAppPath = pathChanged ? newAppPath : this.appPath;
+                this.handleViewTypeChange(targetAppPath, data.viewType);
+            }
+
             if (WizFileUtils.safeWriteJson(appJsonPath, newData)) {
                 vscode.window.showInformationMessage('Portal App Info Updated');
+                this.onFileSaved?.();
                 if (pathChanged) {
                     vscode.commands.executeCommand('wizExplorer.refresh');
                     this.dispose();
@@ -184,6 +204,44 @@ class PortalAppEditor extends AppEditor {
             }
         } catch (e) {
             vscode.window.showErrorMessage(`Failed to save: ${e.message}`);
+        }
+    }
+
+    /**
+     * View Type 변경 처리 (pug <-> html)
+     */
+    handleViewTypeChange(appPath, targetType) {
+        const pugPath = path.join(appPath, 'view.pug');
+        const htmlPath = path.join(appPath, 'view.html');
+        
+        const hasPug = fs.existsSync(pugPath);
+        const hasHtml = fs.existsSync(htmlPath);
+        const currentType = hasPug ? 'pug' : (hasHtml ? 'html' : null);
+        
+        if (currentType === targetType) return;
+        
+        try {
+            if (targetType === 'html' && hasPug) {
+                const pugContent = fs.readFileSync(pugPath, 'utf8');
+                const htmlContent = `<!-- Converted from Pug -->\n<div>Hello, World!</div>\n<!-- Original Pug:\n${pugContent}\n-->`;
+                fs.writeFileSync(htmlPath, htmlContent, 'utf8');
+                fs.unlinkSync(pugPath);
+                vscode.window.showInformationMessage('View 타입이 HTML로 변경되었습니다.');
+            } else if (targetType === 'pug' && hasHtml) {
+                const htmlContent = fs.readFileSync(htmlPath, 'utf8');
+                const pugContent = `//- Converted from HTML\ndiv Hello, World!\n//- Original HTML:\n//- ${htmlContent.replace(/\n/g, '\n//- ')}`;
+                fs.writeFileSync(pugPath, pugContent, 'utf8');
+                fs.unlinkSync(htmlPath);
+                vscode.window.showInformationMessage('View 타입이 Pug로 변경되었습니다.');
+            } else if (!currentType) {
+                if (targetType === 'pug') {
+                    fs.writeFileSync(pugPath, 'div Hello, World!', 'utf8');
+                } else {
+                    fs.writeFileSync(htmlPath, '<div>Hello, World!</div>', 'utf8');
+                }
+            }
+        } catch (e) {
+            vscode.window.showErrorMessage(`View 타입 변경 실패: ${e.message}`);
         }
     }
 }

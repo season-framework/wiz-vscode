@@ -6,13 +6,14 @@ const FileTreeItem = require('./treeItems/fileTreeItem');
 const AppGroupItem = require('./treeItems/appGroupItem');
 const EmptyItem = require('./treeItems/emptyItem');
 const AppPatternProcessor = require('./appPatternProcessor');
-const { SourceCategory, PortalCategory, ProjectCategory } = require('./models/categoryHandlers');
+const { SourceCategory, PortalCategory, ProjectCategory, ExportsCategory } = require('./models/categoryHandlers');
 const { FLAT_APP_TYPES, APP_TYPES, WizPathUtils } = require('../core');
 
 class FileExplorerProvider {
-    constructor(workspaceRoot, extensionPath) {
+    constructor(workspaceRoot, extensionPath, wizRoot) {
         this.workspaceRoot = workspaceRoot;
         this.extensionPath = extensionPath;
+        this.wizRoot = wizRoot;
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         
@@ -23,7 +24,8 @@ class FileExplorerProvider {
         this.categories = [
             new SourceCategory(this),
             new PortalCategory(this),
-            new ProjectCategory(this)
+            new ProjectCategory(this),
+            new ExportsCategory(this)
         ];
     }
 

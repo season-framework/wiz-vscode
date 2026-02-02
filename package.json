@@ -111,32 +111,56 @@
         "icon": "$(plus)"
       },
       {
+        "command": "wizExplorer.build",
+        "title": "Build Project",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "wizExplorer.newPackage",
+        "title": "New Package",
+        "icon": "$(package)"
+      },
+      {
+        "command": "wizExplorer.exportPackage",
+        "title": "Export Package",
+        "icon": "$(export)"
+      },
+      {
+        "command": "wizExplorer.copyTemplate",
+        "title": "Template 복사"
+      },
+      {
+        "command": "wizExplorer.downloadFile",
+        "title": "다운로드...",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "wizExplorer.switch.info.active",
-        "title": "Info ✔"
+        "title": "✔ Info"
       },
       {
         "command": "wizExplorer.switch.controller.active",
-        "title": "Controller ✔"
+        "title": "✔ Controller"
       },
       {
         "command": "wizExplorer.switch.ui.active",
-        "title": "UI ✔"
+        "title": "✔ UI"
       },
       {
         "command": "wizExplorer.switch.component.active",
-        "title": "Component ✔"
+        "title": "✔ Component"
       },
       {
         "command": "wizExplorer.switch.scss.active",
-        "title": "Style ✔"
+        "title": "✔ Style"
       },
       {
         "command": "wizExplorer.switch.api.active",
-        "title": "API ✔"
+        "title": "✔ API"
       },
       {
         "command": "wizExplorer.switch.socket.active",
-        "title": "Socket ✔"
+        "title": "✔ Socket"
       }
     ],
     "menus": {
@@ -219,12 +243,27 @@
           "group": "navigation@1"
         },
         {
+          "command": "wizExplorer.build",
+          "when": "view == wizExplorer",
+          "group": "navigation@2"
+        },
+        {
           "command": "wizExplorer.switchProject",
           "when": "view == wizExplorer",
           "group": "navigation@4"
         }
       ],
       "view/item/context": [
+        {
+          "command": "wizExplorer.newPackage",
+          "when": "view == wizExplorer && viewItem == portalCategory",
+          "group": "1_modification"
+        },
+        {
+          "command": "wizExplorer.exportPackage",
+          "when": "view == wizExplorer && viewItem == portalPackage",
+          "group": "1_modification"
+        },
         {
           "command": "wizExplorer.newApp",
           "when": "view == wizExplorer && viewItem == appGroup",
@@ -274,8 +313,13 @@
           "group": "3_delete"
         },
         {
-          "command": "wizExplorer.revealInExplorer",
-          "when": "view == wizExplorer",
+          "command": "wizExplorer.copyTemplate",
+          "when": "view == wizExplorer && viewItem == appItem",
+          "group": "2_clipboard"
+        },
+        {
+          "command": "wizExplorer.downloadFile",
+          "when": "view == wizExplorer && (viewItem == file || viewItem == folder)",
           "group": "z_reveal"
         }
       ]

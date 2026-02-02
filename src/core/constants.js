@@ -80,11 +80,26 @@ const EXTENSION_LANGUAGE_MAP = {
     '.json': 'json'
 };
 
+// App 기본 템플릿
+const APP_TEMPLATES = {
+    'view.html': `<div>Hello, World!</div>`,
+    'view.ts': `import { OnInit, Input } from '@angular/core';
+
+export class Component implements OnInit {
+    @Input() title: any;
+
+    public async ngOnInit() {
+    }
+}`,
+    'view.scss': ''
+};
+
 module.exports = {
     APP_TYPES,
     FLAT_APP_TYPES,
     FILE_TYPE_MAPPING,
     APP_INDICATOR_FILES,
     FOLDER_ICONS,
-    EXTENSION_LANGUAGE_MAP
+    EXTENSION_LANGUAGE_MAP,
+    APP_TEMPLATES
 };

@@ -107,6 +107,7 @@ class RouteEditor extends AppEditor {
 
             if (WizFileUtils.safeWriteJson(appJsonPath, newData)) {
                 vscode.window.showInformationMessage('Route Info Updated');
+                this.onFileSaved?.();
             } else {
                 vscode.window.showErrorMessage('Failed to save app.json');
             }

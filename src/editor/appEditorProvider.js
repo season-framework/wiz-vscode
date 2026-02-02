@@ -15,15 +15,13 @@ const AppEditor = require('./editors/appEditor');
 const RouteEditor = require('./editors/routeEditor');
 const PortalEditor = require('./editors/portalEditor');
 const PortalAppEditor = require('./editors/portalAppEditor');
-const CreateAppEditor = require('./editors/createEditor');
-const CreatePortalAppEditor = require('./editors/createPortalAppEditor');
-const CreateRouteAppEditor = require('./editors/createRouteAppEditor');
 
 class AppEditorProvider {
     constructor(context) {
         this.context = context;
         this.activeEditor = undefined; // Holds the current active webview editor instance
         this.currentAppPath = undefined;
+        this.onFileSaved = null; // Build trigger callback
     }
 
     /**
@@ -89,6 +87,7 @@ class AppEditorProvider {
             this.activeEditor = new AppEditor(this.context, appPath);
         }
 
+        this.activeEditor.onFileSaved = this.onFileSaved;
         await this.activeEditor.create(contextListener);
         
         // 에디터가 닫힐 때 참조 해제
@@ -108,34 +107,12 @@ class AppEditorProvider {
         }
 
         this.activeEditor = new PortalEditor(this.context, portalJsonPath);
+        this.activeEditor.onFileSaved = this.onFileSaved;
         await this.activeEditor.create();
         
         this.activeEditor.panel.onDidDispose(() => {
             this.activeEditor = undefined;
         });
-    }
-
-    /**
-     * 새 App 생성 에디터 열기
-     */
-    async openCreateAppEditor(groupType, parentPath, fileExplorerProvider) {
-        // Create는 독립적인 패널로 관리해도 되지만, 관리 목적상 activeEditor로 추적 가능
-        // 하지만 Create 창은 보통 Modal 성격이므로 사용자가 명시적으로 닫기 전까지 유지
-        const editor = new CreateAppEditor(this.context, groupType, parentPath);
-        await editor.create(fileExplorerProvider);
-        // Create 에디터는 일회성이 강하므로 여기서 특별히 this.activeEditor에 할당하지 않거나,
-        // 할당하더라도 다른 Info 에디터와 충돌하지 않도록 처리.
-        // 여기서는 독립적으로 띄우되, activeEditor 갱신은 하지 않음 (기존 Info 유지나 병렬 가능)
-    }
-
-    async openCreatePortalAppEditor(parentPath, fileExplorerProvider) {
-        const editor = new CreatePortalAppEditor(this.context, parentPath);
-        await editor.create(fileExplorerProvider);
-    }
-
-    async openCreateRouteAppEditor(parentPath, isPortalRoute, fileExplorerProvider) {
-        const editor = new CreateRouteAppEditor(this.context, parentPath, isPortalRoute);
-        await editor.create(fileExplorerProvider);
     }
 
     /**

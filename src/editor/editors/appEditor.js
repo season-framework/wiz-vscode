@@ -62,10 +62,15 @@ class AppEditor extends EditorBase {
         const controllerDir = WizPathUtils.findControllerDir(this.appPath, workspaceFolder);
         const controllers = WizPathUtils.loadControllers(controllerDir);
 
-        return { layouts, isPage, controllers, category };
+        // Detect current view type (pug or html)
+        const hasPug = fs.existsSync(path.join(this.appPath, 'view.pug'));
+        const hasHtml = fs.existsSync(path.join(this.appPath, 'view.html'));
+        const currentViewType = hasPug ? 'pug' : (hasHtml ? 'html' : 'pug');
+
+        return { layouts, isPage, controllers, category, currentViewType };
     }
 
-    generateHtml(data, { layouts, isPage, controllers }) {
+    generateHtml(data, { layouts, isPage, controllers, currentViewType }) {
         const layoutField = isPage 
             ? WebviewTemplates.formGroupSelect('layout', 'Layout', layouts, data.layout || '')
             : `<input type="hidden" id="layout" value="${data.layout || ''}" />`;
@@ -73,6 +78,17 @@ class AppEditor extends EditorBase {
         const ngRoutingField = isPage
             ? WebviewTemplates.formGroupInput('ngRouting', 'Angular Routing', data.viewuri || '')
             : `<input type="hidden" id="ngRouting" value="${data.viewuri || ''}" />`;
+
+        // View Type 선택 (pug/html)
+        const viewTypeField = `
+            <div class="form-group">
+                <label>View Type</label>
+                <select id="viewType">
+                    <option value="pug" ${currentViewType === 'pug' ? 'selected' : ''}>Pug</option>
+                    <option value="html" ${currentViewType === 'html' ? 'selected' : ''}>HTML</option>
+                </select>
+            </div>
+        `;
 
         const bodyContent = `
             <div class="container">
@@ -84,6 +100,7 @@ class AppEditor extends EditorBase {
                 ${WebviewTemplates.formGroupInput('previewUrl', 'Preview URL', data.preview || '')}
                 ${WebviewTemplates.formGroupSelect('controller', 'Controller', controllers, data.controller || '')}
                 ${layoutField}
+                ${viewTypeField}
                 <div class="btn-group">
                     <button class="btn-secondary" onclick="save()">Update</button>
                     <button class="btn-danger" onclick="del()">Delete</button>
@@ -159,8 +176,18 @@ class AppEditor extends EditorBase {
             if (data.controller !== undefined) newData.controller = data.controller;
             if (data.layout !== undefined) newData.layout = data.layout;
 
+            // Handle View Type change (pug <-> html)
+            if (data.viewType) {
+                const targetAppPath = pathChanged ? newAppPath : this.appPath;
+                this.handleViewTypeChange(targetAppPath, data.viewType);
+            }
+
             if (WizFileUtils.safeWriteJson(appJsonPath, newData)) {
                 vscode.window.showInformationMessage('App Info Updated');
+                console.log('[Wiz] App Info saved, triggering build. onFileSaved:', typeof this.onFileSaved);
+                if (typeof this.onFileSaved === 'function') {
+                    this.onFileSaved();
+                }
                 if (pathChanged) {
                     vscode.commands.executeCommand('wizExplorer.refresh');
                     this.dispose(); // Close webview on path change
@@ -190,6 +217,54 @@ class AppEditor extends EditorBase {
                 }
             }
         });
+    }
+
+    /**
+     * View Type 변경 처리 (pug <-> html)
+     * @param {string} appPath - 앱 경로
+     * @param {string} targetType - 변경할 타입 ('pug' | 'html')
+     */
+    handleViewTypeChange(appPath, targetType) {
+        const pugPath = path.join(appPath, 'view.pug');
+        const htmlPath = path.join(appPath, 'view.html');
+        
+        const hasPug = fs.existsSync(pugPath);
+        const hasHtml = fs.existsSync(htmlPath);
+        
+        // 현재 타입 확인
+        const currentType = hasPug ? 'pug' : (hasHtml ? 'html' : null);
+        
+        // 같은 타입이면 무시
+        if (currentType === targetType) return;
+        
+        try {
+            if (targetType === 'html' && hasPug) {
+                // pug -> html 변환
+                const pugContent = fs.readFileSync(pugPath, 'utf8');
+                // 간단한 변환: pug 내용을 HTML 주석으로 감싸서 보존
+                const htmlContent = `<!-- Converted from Pug -->\n<!-- Original Pug:\n${pugContent}\n-->\n<div>Hello, World!</div>`;
+                fs.writeFileSync(htmlPath, htmlContent, 'utf8');
+                fs.unlinkSync(pugPath);
+                vscode.window.showInformationMessage('View 타입이 HTML로 변경되었습니다.');
+            } else if (targetType === 'pug' && hasHtml) {
+                // html -> pug 변환
+                const htmlContent = fs.readFileSync(htmlPath, 'utf8');
+                // 간단한 변환: html 내용을 주석으로 감싸서 보존
+                const pugContent = `//- Converted from HTML\n//- Original HTML:\n//- ${htmlContent.replace(/\n/g, '\n//- ')}\ndiv Hello, World!`;
+                fs.writeFileSync(pugPath, pugContent, 'utf8');
+                fs.unlinkSync(htmlPath);
+                vscode.window.showInformationMessage('View 타입이 Pug로 변경되었습니다.');
+            } else if (!currentType) {
+                // 파일이 없는 경우 새로 생성
+                if (targetType === 'pug') {
+                    fs.writeFileSync(pugPath, 'div Hello, World!', 'utf8');
+                } else {
+                    fs.writeFileSync(htmlPath, '<div>Hello, World!</div>', 'utf8');
+                }
+            }
+        } catch (e) {
+            vscode.window.showErrorMessage(`View 타입 변경 실패: ${e.message}`);
+        }
     }
 }
 

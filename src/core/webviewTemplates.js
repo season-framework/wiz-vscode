@@ -139,6 +139,7 @@ class WebviewTemplates {
     static getFormDataCollectionScript() {
         return `
             function collectFormData() {
+                const viewTypeEl = document.getElementById('viewType');
                 return {
                     title: document.getElementById('title').value,
                     namespace: document.getElementById('namespace').value,
@@ -146,7 +147,8 @@ class WebviewTemplates {
                     ngRouting: document.getElementById('ngRouting').value,
                     previewUrl: document.getElementById('previewUrl').value,
                     controller: document.getElementById('controller').value,
-                    layout: document.getElementById('layout').value
+                    layout: document.getElementById('layout').value,
+                    viewType: viewTypeEl ? viewTypeEl.value : null
                 };
             }
         `;

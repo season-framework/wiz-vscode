@@ -129,6 +129,7 @@ class PortalEditor extends EditorBase {
 
             if (WizFileUtils.safeWriteJson(targetJsonPath, newData)) {
                 vscode.window.showInformationMessage('Portal Info Updated');
+                this.onFileSaved?.();
                 if (pathChanged) {
                     vscode.commands.executeCommand('wizExplorer.refresh');
                     this.dispose();

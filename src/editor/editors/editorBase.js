@@ -4,6 +4,7 @@ class EditorBase {
     constructor(context) {
         this.context = context;
         this.panel = undefined;
+        this.onFileSaved = null; // Build trigger callback
     }
 
     createPanel(viewType, title, viewColumn = vscode.ViewColumn.Active) {

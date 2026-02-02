@@ -14,14 +14,12 @@ const FileExplorerProvider = require('./explorer/fileExplorerProvider');
 const AppEditorProvider = require('./editor/appEditorProvider');
 const AppContextListener = require('./editor/appContextListener');
 const WizFileSystemProvider = require('./editor/wizFileSystemProvider');
-const { WizPathUtils, WizFileUtils, WizUriFactory, FILE_TYPE_MAPPING } = require('./core');
+const { WizPathUtils, WizFileUtils, WizUriFactory, FILE_TYPE_MAPPING, APP_TEMPLATES } = require('./core');
 
 /**
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
-    console.log('Wiz VSCode Explorer is now active');
-
     // ==================== Core Providers ====================
     const appEditorProvider = new AppEditorProvider(context);
     const appContextListener = new AppContextListener(context);
@@ -52,12 +50,14 @@ function activate(context) {
     function updateProjectRoot() {
         if (!workspaceRoot) {
             fileExplorerProvider.workspaceRoot = undefined;
+            fileExplorerProvider.wizRoot = undefined;
             fileExplorerProvider.refresh();
             return;
         }
 
         const projectPath = path.join(workspaceRoot, 'project', currentProject);
         fileExplorerProvider.workspaceRoot = projectPath;
+        fileExplorerProvider.wizRoot = workspaceRoot;
         fileExplorerProvider.refresh();
         
         if (treeView) {
@@ -173,12 +173,374 @@ function activate(context) {
         return null;
     }
 
+    // ==================== Build Trigger ====================
+    const buildOutputChannel = vscode.window.createOutputChannel('Wiz Build');
+    let buildProcess = null;
+    
+    // ANSI 색상 코드 제거 함수
+    function stripAnsi(str) {
+        return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+    }
+    
+    function triggerBuild(clean = false) {
+        if (!currentProject) return;
+        
+        // 이전 빌드 프로세스가 실행 중이면 종료
+        if (buildProcess) {
+            buildProcess.kill();
+            buildProcess = null;
+        }
+        
+        const buildType = clean ? 'Clean Build' : 'Build';
+        buildOutputChannel.show(true);
+        buildOutputChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${buildType} project: ${currentProject}...`);
+        
+        const args = ['project', 'build', '--project', currentProject];
+        if (clean) {
+            args.push('--clean');
+        }
+        
+        buildProcess = cp.spawn('wiz', args, {
+            cwd: workspaceRoot,
+            shell: true,
+            env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' }
+        });
+        
+        buildProcess.stdout.on('data', (data) => {
+            buildOutputChannel.append(stripAnsi(data.toString()));
+        });
+        
+        buildProcess.stderr.on('data', (data) => {
+            buildOutputChannel.append(stripAnsi(data.toString()));
+        });
+        
+        buildProcess.on('close', (code) => {
+            buildOutputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Build finished with code ${code}`);
+            buildProcess = null;
+        });
+        
+        buildProcess.on('error', (err) => {
+            buildOutputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Build error: ${err.message}`);
+            buildProcess = null;
+        });
+    }
+
+    // Inject build trigger to AppEditorProvider
+    appEditorProvider.onFileSaved = () => triggerBuild(false);
+
+    // ==================== App Creation Functions ====================
+    async function createStandardApp(groupType, parentPath, fileExplorerProvider) {
+        const capitalizedType = groupType.charAt(0).toUpperCase() + groupType.slice(1);
+        
+        // 1. Namespace 입력
+        const namespace = await vscode.window.showInputBox({
+            title: `새 ${capitalizedType} 생성`,
+            prompt: 'Namespace를 입력하세요',
+            placeHolder: 'myapp',
+            validateInput: (value) => {
+                if (!value) return 'Namespace는 필수입니다.';
+                if (!/^[a-z][a-z0-9_]*$/.test(value)) {
+                    return '영문 소문자로 시작하고, 소문자/숫자/밑줄만 허용됩니다.';
+                }
+                const appID = `${groupType}.${value}`;
+                const appPath = path.join(parentPath, appID);
+                if (fs.existsSync(appPath)) {
+                    return '이미 존재하는 앱입니다.';
+                }
+                return null;
+            }
+        });
+        if (!namespace) return;
+
+        // 2. Title 입력 (선택)
+        const title = await vscode.window.showInputBox({
+            title: 'Title (선택사항)',
+            prompt: '앱의 표시 이름을 입력하세요. 비워두면 namespace를 사용합니다.',
+            placeHolder: namespace
+        });
+
+        // 3. Category 입력 (선택)
+        const category = await vscode.window.showInputBox({
+            title: 'Category (선택사항)',
+            prompt: '카테고리를 입력하세요.',
+            placeHolder: namespace
+        });
+
+        // 4. Controller 선택 (선택)
+        const controllerDir = path.join(fileExplorerProvider.workspaceRoot, 'src', 'controller');
+        const controllers = WizPathUtils.loadControllers(controllerDir);
+        let controller = '';
+        
+        if (controllers.length > 0) {
+            const controllerItems = [
+                { label: '$(dash) 없음', value: '' },
+                ...controllers.map(c => ({ label: `$(symbol-method) ${c}`, value: c }))
+            ];
+            const selectedController = await vscode.window.showQuickPick(controllerItems, {
+                title: 'Controller 선택 (선택사항)',
+                placeHolder: '사용할 Controller를 선택하세요'
+            });
+            if (selectedController) {
+                controller = selectedController.value;
+            }
+        }
+
+        // 5. Page 전용: Layout 선택 및 ViewURI 입력
+        let layout = '';
+        let viewuri = '';
+        
+        if (groupType === 'page') {
+            // Layout 선택
+            const layouts = WizPathUtils.loadLayouts(parentPath);
+            if (layouts.length > 0) {
+                const layoutItems = [
+                    { label: '$(dash) 없음', value: '' },
+                    ...layouts.map(l => ({ label: `$(layout) ${l}`, value: l }))
+                ];
+                const selectedLayout = await vscode.window.showQuickPick(layoutItems, {
+                    title: 'Layout 선택 (선택사항)',
+                    placeHolder: '사용할 Layout을 선택하세요'
+                });
+                if (selectedLayout) {
+                    layout = selectedLayout.value;
+                }
+            }
+
+            // ViewURI (Angular Routing) 입력
+            viewuri = await vscode.window.showInputBox({
+                title: 'Angular Routing (선택사항)',
+                prompt: 'ViewURI를 입력하세요.',
+                placeHolder: '/example'
+            }) || '';
+        }
+
+        // 앱 생성
+        const appID = `${groupType}.${namespace}`;
+        const newAppPath = path.join(parentPath, appID);
+
+        try {
+            fs.mkdirSync(newAppPath, { recursive: true });
+
+            const appJson = {
+                id: appID,
+                mode: groupType,
+                title: title || namespace,
+                namespace: namespace,
+                category: category || namespace,
+                viewuri: viewuri,
+                preview: '',
+                controller: controller,
+                layout: layout
+            };
+
+            WizFileUtils.safeWriteJson(path.join(newAppPath, 'app.json'), appJson);
+            
+            // 기본 템플릿 파일 생성
+            WizFileUtils.safeWriteFile(path.join(newAppPath, 'view.html'), APP_TEMPLATES['view.html']);
+            WizFileUtils.safeWriteFile(path.join(newAppPath, 'view.ts'), APP_TEMPLATES['view.ts']);
+            
+            vscode.window.showInformationMessage(`${capitalizedType} '${appID}' 생성 완료`);
+            fileExplorerProvider?.refresh();
+        } catch (e) {
+            vscode.window.showErrorMessage(`앱 생성 실패: ${e.message}`);
+        }
+    }
+
+    async function createPortalApp(parentPath, fileExplorerProvider) {
+        // 1. Namespace 입력
+        const namespace = await vscode.window.showInputBox({
+            title: '새 Portal App 생성',
+            prompt: 'Namespace를 입력하세요',
+            placeHolder: 'myapp',
+            validateInput: (value) => {
+                if (!value) return 'Namespace는 필수입니다.';
+                if (!/^[a-z][a-z0-9_]*$/.test(value)) {
+                    return '영문 소문자로 시작하고, 소문자/숫자/밑줄만 허용됩니다.';
+                }
+                const appPath = path.join(parentPath, value);
+                if (fs.existsSync(appPath)) {
+                    return '이미 존재하는 앱입니다.';
+                }
+                return null;
+            }
+        });
+        if (!namespace) return;
+
+        // 2. Title 입력 (선택)
+        const title = await vscode.window.showInputBox({
+            title: 'Title (선택사항)',
+            prompt: '앱의 표시 이름을 입력하세요. 비워두면 namespace를 사용합니다.',
+            placeHolder: namespace
+        });
+
+        // 3. Category 입력 (선택)
+        const category = await vscode.window.showInputBox({
+            title: 'Category (선택사항)',
+            prompt: '카테고리를 입력하세요.',
+            placeHolder: 'editor',
+            value: 'editor'
+        });
+
+        // 4. Controller 선택 (선택)
+        const packagePath = path.dirname(parentPath);
+        const packageName = path.basename(packagePath);
+        const controllerDir = path.join(packagePath, 'controller');
+        const controllers = WizPathUtils.loadControllers(controllerDir);
+        let controller = '';
+        
+        if (controllers.length > 0) {
+            const controllerItems = [
+                { label: '$(dash) 없음', value: '' },
+                ...controllers.map(c => ({ label: `$(symbol-method) ${c}`, value: c }))
+            ];
+            const selectedController = await vscode.window.showQuickPick(controllerItems, {
+                title: 'Controller 선택 (선택사항)',
+                placeHolder: '사용할 Controller를 선택하세요'
+            });
+            if (selectedController) {
+                controller = selectedController.value;
+            }
+        }
+
+        // 앱 생성
+        const appID = namespace;
+        const newAppPath = path.join(parentPath, appID);
+
+        try {
+            fs.mkdirSync(newAppPath, { recursive: true });
+
+            const appJson = {
+                id: appID,
+                mode: 'portal',
+                title: title || namespace,
+                namespace: namespace,
+                category: category || 'editor',
+                viewuri: '',
+                controller: controller,
+                template: `wiz-portal-${packageName}-${namespace.replace(/\./g, '-')}`
+            };
+
+            WizFileUtils.safeWriteJson(path.join(newAppPath, 'app.json'), appJson);
+            
+            // 기본 템플릿 파일 생성
+            WizFileUtils.safeWriteFile(path.join(newAppPath, 'view.html'), APP_TEMPLATES['view.html']);
+            WizFileUtils.safeWriteFile(path.join(newAppPath, 'view.ts'), APP_TEMPLATES['view.ts']);
+            WizFileUtils.safeWriteFile(path.join(newAppPath, 'view.scss'), APP_TEMPLATES['view.scss']);
+
+            vscode.window.showInformationMessage(`Portal App '${appID}' 생성 완료`);
+            fileExplorerProvider?.refresh();
+        } catch (e) {
+            vscode.window.showErrorMessage(`앱 생성 실패: ${e.message}`);
+        }
+    }
+
+    async function createRoute(parentPath, isPortalRoute, fileExplorerProvider) {
+        const routeType = isPortalRoute ? 'Portal Route' : 'Route';
+        
+        // 1. ID 입력
+        const id = await vscode.window.showInputBox({
+            title: `새 ${routeType} 생성`,
+            prompt: 'ID (폴더명)를 입력하세요',
+            placeHolder: 'myroute',
+            validateInput: (value) => {
+                if (!value) return 'ID는 필수입니다.';
+                if (!/^[a-z][a-z0-9]*$/.test(value)) {
+                    return '영문 소문자로 시작하고, 소문자/숫자만 허용됩니다.';
+                }
+                const routePath = path.join(parentPath, value);
+                if (fs.existsSync(routePath)) {
+                    return '이미 존재하는 라우트입니다.';
+                }
+                return null;
+            }
+        });
+        if (!id) return;
+
+        // 2. Title 입력 (선택)
+        const title = await vscode.window.showInputBox({
+            title: 'Title (선택사항)',
+            prompt: '라우트의 표시 이름을 입력하세요.',
+            placeHolder: id
+        });
+
+        // 3. Route Path 입력
+        const routePath = await vscode.window.showInputBox({
+            title: 'Route Path',
+            prompt: 'API 경로를 입력하세요.',
+            placeHolder: '/api/example'
+        });
+
+        // 라우트 생성
+        const newRoutePath = path.join(parentPath, id);
+
+        try {
+            fs.mkdirSync(newRoutePath, { recursive: true });
+
+            const appJson = {
+                id: id,
+                title: title || id,
+                route: routePath || '',
+                category: '',
+                viewuri: '',
+                controller: ''
+            };
+
+            WizFileUtils.safeWriteJson(path.join(newRoutePath, 'app.json'), appJson);
+            WizFileUtils.safeWriteFile(path.join(newRoutePath, 'controller.py'), '');
+
+            vscode.window.showInformationMessage(`${routeType} '${id}' 생성 완료`);
+            fileExplorerProvider?.refresh();
+        } catch (e) {
+            vscode.window.showErrorMessage(`라우트 생성 실패: ${e.message}`);
+        }
+    }
+
+    context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((document) => {
+        if (!currentProject) return;
+        
+        const uri = document.uri;
+        
+        // wiz:// 스킴 파일도 빌드 트리거 동작
+        if (uri.scheme === 'wiz') {
+            triggerBuild();
+            return;
+        }
+        
+        // 일반 file 스킴은 워크스페이스 경로 체크
+        if (uri.scheme === 'file') {
+            if (workspaceRoot && !uri.fsPath.startsWith(workspaceRoot)) return;
+            triggerBuild();
+        }
+    }));
+
     // ==================== Commands Registration ====================
     const commands = [
         // Core commands
         ['wizExplorer.refresh', () => fileExplorerProvider.refresh()],
         ['wizExplorer.openAppEditor', (appPath, groupType) => appEditorProvider.openEditor(appPath, groupType)],
         ['wizExplorer.openPortalInfo', (portalJsonPath) => appEditorProvider.openPortalInfoEditor(portalJsonPath)],
+        
+        // Build command
+        ['wizExplorer.build', async () => {
+            if (!currentProject) {
+                vscode.window.showErrorMessage('프로젝트가 선택되지 않았습니다.');
+                return;
+            }
+
+            const buildOptions = [
+                { label: '$(tools) Normal Build', description: '현재 상태에서 빌드', value: false },
+                { label: '$(trash) Clean Build', description: '기존 빌드 결과물 삭제 후 빌드', value: true }
+            ];
+
+            const selected = await vscode.window.showQuickPick(buildOptions, {
+                title: '빌드 타입 선택',
+                placeHolder: '빌드 방식을 선택하세요'
+            });
+
+            if (selected) {
+                triggerBuild(selected.value);
+            }
+        }],
         
         // File switch commands
         ['wizExplorer.switch.info', () => switchFile('info')],
@@ -243,8 +605,10 @@ function activate(context) {
                 });
 
             const items = [
-                { label: '$(cloud-download) 프로젝트 불러오기...', description: 'Git 저장소 복제', action: 'import' },
-                { label: '$(trash) 프로젝트 삭제하기...', description: '로컬 프로젝트 폴더 삭제', action: 'delete' },
+                { label: '$(cloud-download) 프로젝트 불러오기 (Git)', description: 'Git 저장소 복제', action: 'import' },
+                { label: '$(file-zip) 프로젝트 파일 불러오기 (.wizproject)', description: '로컬 파일에서 생성', action: 'importFile' },
+                { label: '$(package) 프로젝트 내보내기', description: 'exports 폴더로 내보내기', action: 'export' },
+                { label: '$(trash) 프로젝트 삭제하기', description: '로컬 프로젝트 폴더 삭제', action: 'delete' },
                 { label: '', kind: vscode.QuickPickItemKind.Separator },
                 ...projects.map(p => ({ label: `$(folder) ${p}`, action: 'switch', projectName: p }))
             ];
@@ -300,6 +664,117 @@ function activate(context) {
                         vscode.window.showErrorMessage(`프로젝트 삭제 실패: ${err.message}`);
                     }
                 });
+
+            } else if (selected.action === 'export') {
+                // Export Project
+                const projectToExport = await vscode.window.showQuickPick(projects, {
+                    placeHolder: '내보낼 프로젝트 선택',
+                    title: '프로젝트 내보내기'
+                });
+
+                if (!projectToExport) return;
+
+                // exports 폴더 경로 설정
+                const exportsPath = path.join(fileExplorerProvider.wizRoot, 'exports');
+                if (!fs.existsSync(exportsPath)) {
+                    fs.mkdirSync(exportsPath, { recursive: true });
+                }
+
+                const outputPath = path.join(exportsPath, projectToExport);
+
+                vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: `프로젝트 '${projectToExport}' 내보내는 중...`,
+                    cancellable: false
+                }, async () => {
+                    try {
+                        const command = `wiz project export --project=${projectToExport} --output="${outputPath}"`;
+                        buildOutputChannel.appendLine(`[Export] ${command}`);
+                        buildOutputChannel.show(true);
+
+                        await exec(command, { cwd: fileExplorerProvider.wizRoot });
+
+                        buildOutputChannel.appendLine(`[Export] 완료: ${outputPath}`);
+                        vscode.window.showInformationMessage(`프로젝트 '${projectToExport}'가 exports 폴더로 내보내졌습니다.`);
+                        
+                        // Refresh to show in Exports category
+                        fileExplorerProvider.refresh();
+                    } catch (err) {
+                        buildOutputChannel.appendLine(`[Export] 실패: ${err.message}`);
+                        vscode.window.showErrorMessage(`프로젝트 내보내기 실패: ${err.message}`);
+                    }
+                });
+
+            } else if (selected.action === 'importFile') {
+                // 1. Select .wizproject file
+                const fileUris = await vscode.window.showOpenDialog({
+                    canSelectFiles: true,
+                    canSelectFolders: false,
+                    canSelectMany: false,
+                    filters: { 'Wiz Project': ['wizproject'] },
+                    title: 'Wiz 프로젝트 파일 선택'
+                });
+
+                if (!fileUris || fileUris.length === 0) return;
+                const filePath = fileUris[0].fsPath;
+
+                // 2. Input Project Name (Namespace)
+                const projectName = await vscode.window.showInputBox({
+                    title: '새 프로젝트 이름(Namespace) 입력',
+                    prompt: '영문 소문자와 숫자만 허용됩니다.',
+                    value: path.basename(filePath, '.wizproject'),
+                    validateInput: (value) => {
+                        if (!/^[a-z0-9]+$/.test(value)) {
+                            return '영문 소문자와 숫자만 허용됩니다.';
+                        }
+                        if (fs.existsSync(path.join(projectBasePath, value))) {
+                            return '이미 존재하는 프로젝트 이름입니다.';
+                        }
+                        return null;
+                    }
+                });
+
+                if (!projectName) return;
+
+                // 3. Unzip to project folder
+                const targetPath = path.join(projectBasePath, projectName);
+                
+                try {
+                    await vscode.window.withProgress({
+                        location: vscode.ProgressLocation.Notification,
+                        title: `프로젝트 '${projectName}' 가져오는 중...`,
+                        cancellable: false
+                    }, async () => {
+                        // Create target directory
+                        fs.mkdirSync(targetPath, { recursive: true });
+                        
+                        // Unzip file to target path
+                        const command = `unzip -o "${filePath}" -d "${targetPath}"`;
+                        buildOutputChannel.appendLine(`[Import] ${command}`);
+                        buildOutputChannel.show(true);
+
+                        await exec(command);
+
+                        buildOutputChannel.appendLine(`[Import] 완료: ${targetPath}`);
+                    });
+                    
+                    const choice = await vscode.window.showInformationMessage(
+                        `프로젝트 '${projectName}'를 성공적으로 가져왔습니다. 전환하시겠습니까?`,
+                        '예', '아니오'
+                    );
+                    
+                    if (choice === '예') {
+                        currentProject = projectName;
+                        updateProjectRoot();
+                    }
+                } catch (err) {
+                    // 실패 시 생성된 폴더 정리
+                    if (fs.existsSync(targetPath)) {
+                        fs.rmSync(targetPath, { recursive: true, force: true });
+                    }
+                    buildOutputChannel.appendLine(`[Import] 실패: ${err.message}`);
+                    vscode.window.showErrorMessage(`프로젝트 가져오기 실패: ${err.message}`);
+                }
 
             } else if (selected.action === 'import') {
                 // 1. Input Project Name
@@ -358,15 +833,171 @@ function activate(context) {
         }],
 
         // New App
-        ['wizExplorer.newApp', (node) => {
+        ['wizExplorer.newApp', async (node) => {
             if (node?.contextValue === 'appGroup') {
-                appEditorProvider.openCreateAppEditor(node.groupType, node.parentPath, fileExplorerProvider);
+                // Standard App (page, component, widget, layout)
+                await createStandardApp(node.groupType, node.parentPath, fileExplorerProvider);
             } else if (node?.contextValue === 'portalAppGroup') {
-                appEditorProvider.openCreatePortalAppEditor(node.resourceUri.fsPath, fileExplorerProvider);
+                // Portal App
+                await createPortalApp(node.resourceUri.fsPath, fileExplorerProvider);
             } else if (node?.contextValue === 'routeGroup') {
-                appEditorProvider.openCreateRouteAppEditor(node.resourceUri.fsPath, false, fileExplorerProvider);
+                // Standard Route
+                await createRoute(node.resourceUri.fsPath, false, fileExplorerProvider);
             } else if (node?.contextValue === 'portalRouteGroup') {
-                appEditorProvider.openCreateRouteAppEditor(node.resourceUri.fsPath, true, fileExplorerProvider);
+                // Portal Route
+                await createRoute(node.resourceUri.fsPath, true, fileExplorerProvider);
+            }
+        }],
+
+        // New Package (Portal)
+        ['wizExplorer.newPackage', async () => {
+            if (!currentProject) {
+                vscode.window.showErrorMessage('프로젝트가 선택되지 않았습니다.');
+                return;
+            }
+
+            const namespace = await vscode.window.showInputBox({
+                title: '새 패키지 생성',
+                prompt: '패키지 이름을 입력하세요 (영문 소문자와 숫자만 허용)',
+                placeHolder: 'mypackage',
+                validateInput: (value) => {
+                    if (!value) return '패키지 이름은 필수입니다.';
+                    if (!/^[a-z][a-z0-9]*$/.test(value)) {
+                        return '영문 소문자로 시작하고 영문 소문자와 숫자만 허용됩니다.';
+                    }
+                    const portalPath = path.join(fileExplorerProvider.workspaceRoot, 'src', 'portal', value);
+                    if (fs.existsSync(portalPath)) {
+                        return '이미 존재하는 패키지 이름입니다.';
+                    }
+                    return null;
+                }
+            });
+
+            if (!namespace) return;
+
+            const title = await vscode.window.showInputBox({
+                title: '패키지 타이틀 (선택사항)',
+                prompt: '패키지의 표시 이름을 입력하세요. 비워두면 namespace를 사용합니다.',
+                placeHolder: namespace.toUpperCase()
+            });
+
+            buildOutputChannel.show(true);
+            buildOutputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Creating package: ${namespace}...`);
+
+            const createProcess = cp.spawn('wiz', [
+                'project', 'package', 'create',
+                `--namespace=${namespace}`,
+                `--project=${currentProject}`,
+                ...(title ? [`--title=${title}`] : [])
+            ], {
+                cwd: workspaceRoot,
+                shell: true,
+                env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' }
+            });
+
+            createProcess.stdout.on('data', (data) => {
+                buildOutputChannel.append(stripAnsi(data.toString()));
+            });
+
+            createProcess.stderr.on('data', (data) => {
+                buildOutputChannel.append(stripAnsi(data.toString()));
+            });
+
+            createProcess.on('close', (code) => {
+                if (code === 0) {
+                    vscode.window.showInformationMessage(`패키지 '${namespace}'가 생성되었습니다.`);
+                    fileExplorerProvider.refresh();
+                } else {
+                    vscode.window.showErrorMessage(`패키지 생성 실패 (code: ${code})`);
+                }
+                buildOutputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Package creation finished with code ${code}`);
+            });
+
+            createProcess.on('error', (err) => {
+                vscode.window.showErrorMessage(`패키지 생성 오류: ${err.message}`);
+                buildOutputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Package creation error: ${err.message}`);
+            });
+        }],
+
+        // Export Package
+        ['wizExplorer.exportPackage', async (node) => {
+            if (!node || !node.resourceUri) {
+                vscode.window.showErrorMessage('패키지를 선택해주세요.');
+                return;
+            }
+
+            const packagePath = node.resourceUri.fsPath;
+            const packageName = path.basename(packagePath);
+            const archiver = require('archiver');
+            
+            // wiz 루트의 exports 폴더에 파일 생성
+            const exportsDir = path.join(workspaceRoot, 'exports');
+            if (!fs.existsSync(exportsDir)) {
+                fs.mkdirSync(exportsDir, { recursive: true });
+            }
+            const outputPath = path.join(exportsDir, `${packageName}.wizpkg`);
+
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `패키지 '${packageName}' 내보내는 중...`,
+                cancellable: false
+            }, async () => {
+                return new Promise((resolve, reject) => {
+                    const output = fs.createWriteStream(outputPath);
+                    const archive = archiver('zip', { zlib: { level: 9 } });
+
+                    output.on('close', () => {
+                        resolve();
+                    });
+
+                    archive.on('error', (err) => {
+                        vscode.window.showErrorMessage(`패키지 내보내기 실패: ${err.message}`);
+                        reject(err);
+                    });
+
+                    archive.pipe(output);
+                    
+                    // 절대 경로가 포함되는 문제를 방지하기 위해 glob 패턴과 cwd 옵션 사용
+                    archive.glob('**/*', { 
+                        cwd: packagePath,
+                        ignore: ['.git/**', 'node_modules/**']
+                    }, { prefix: packageName });
+                    
+                    archive.finalize();
+                });
+            });
+            
+            vscode.window.showInformationMessage(`패키지 '${packageName}'가 '${outputPath}'에 내보내졌습니다.`);
+        }],
+
+        // Copy Template
+        ['wizExplorer.copyTemplate', async (node) => {
+            if (!node || !node.resourceUri) {
+                vscode.window.showErrorMessage('앱을 선택해주세요.');
+                return;
+            }
+
+            const appPath = node.resourceUri.fsPath;
+            const appJsonPath = path.join(appPath, 'app.json');
+
+            if (!fs.existsSync(appJsonPath)) {
+                vscode.window.showErrorMessage('app.json 파일을 찾을 수 없습니다.');
+                return;
+            }
+
+            try {
+                const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf8'));
+                const template = appJson.template || '';
+
+                if (!template) {
+                    vscode.window.showWarningMessage('template 값이 비어있습니다.');
+                    return;
+                }
+
+                await vscode.env.clipboard.writeText(template);
+                vscode.window.showInformationMessage(`Template 복사됨: ${template}`);
+            } catch (e) {
+                vscode.window.showErrorMessage(`Template 복사 실패: ${e.message}`);
             }
         }],
 
@@ -422,6 +1053,27 @@ function activate(context) {
             if (node) {
                 clipboard = node.resourceUri.fsPath;
                 vscode.window.showInformationMessage(`복사됨: ${path.basename(clipboard)}`);
+            }
+        }],
+
+        ['wizExplorer.downloadFile', async (node) => {
+            if (!node || !node.resourceUri) {
+                vscode.window.showErrorMessage('다운로드할 파일을 선택해주세요.');
+                return;
+            }
+
+            try {
+                const fileUri = vscode.Uri.file(node.resourceUri.fsPath);
+                
+                // 기본 탐색기에서 파일을 reveal (선택)
+                await vscode.commands.executeCommand('revealInExplorer', fileUri);
+                
+                // 안내 메시지
+                vscode.window.showInformationMessage(
+                    '파일이 탐색기에서 선택되었습니다. 우클릭하여 "다운로드..."를 선택하세요.'
+                );
+            } catch (err) {
+                vscode.window.showErrorMessage(`파일 열기 실패: ${err.message}`);
             }
         }],
 
