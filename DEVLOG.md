@@ -11,7 +11,8 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 
 ### v1.1.1 (ktw updated)
 
-- [054](./devlog/v1.1.1/054-keyboard-navigation-and-wiz-tab-label-fix.md) - 키보드 네비게이션 개편 및 Wiz 탭 타이틀 표시 복구
+- [055](./devlog/v1.1.1/055-source-angular-duplicate-id-fix.md) - Source Angular 트리 ID 중복으로 인한 확장 오류 수정
+- [054](./devlog/v1.1.1/054-keyboard-navigation-and-wiz-tab-label-fix.md) - 키보드 네비게이션 개편
 - [053](./devlog/v1.1.1/053-build-python-environment-fallback.md) - 자동 빌드 Python 환경 선택 및 Wiz 실행 경로 개선
 - [052](./devlog/v1.1.1/052-save-trigger-build-and-wiz-uri-fix.md) - 저장 시 실제 변경 기반 자동 빌드 및 Wiz URI 호환성 개선
 - [051](./devlog/v1.1.1/051-auto-build-condition-fix.md) - Wiz 탭 활성화 이후 자동 빌드 조건 처리 개선
