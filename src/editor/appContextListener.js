@@ -83,6 +83,18 @@ class AppContextListener {
         const uri = editor.document.uri;
         
         if (uri.scheme === 'wiz') {
+            const query = new URLSearchParams(uri.query || '');
+            const label = query.get('label');
+            if (label) {
+                return WizFileUtils.getTypeFromVirtualPath(label) || '';
+            }
+
+            const realPath = WizPathUtils.getRealPathFromUri(uri);
+            if (realPath) {
+                const fileName = path.basename(realPath);
+                return WizFileUtils.getTypeFromFileName(fileName) || '';
+            }
+
             const virtualName = uri.path.split('/').pop();
             return WizFileUtils.getTypeFromVirtualPath(virtualName) || '';
         } else if (uri.scheme === 'file') {

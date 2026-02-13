@@ -200,6 +200,33 @@ function activate(context) {
         return normalizedFilePath === normalizedSrcRoot || normalizedFilePath.startsWith(normalizedSrcRoot + path.sep);
     }
 
+    const changedOnWillSaveDocuments = new Set();
+
+    function isContentChangedFromDisk(document, realPath) {
+        try {
+            const diskContent = fs.existsSync(realPath) ? fs.readFileSync(realPath, 'utf8') : '';
+            return diskContent !== document.getText();
+        } catch (e) {
+            return document.isDirty;
+        }
+    }
+
+    context.subscriptions.push(vscode.workspace.onWillSaveTextDocument((event) => {
+        if (!isWizWorkspaceForCurrentProject()) return;
+
+        const document = event.document;
+        const realPath = resolveDocumentRealPath(document);
+        if (!realPath) return;
+        if (!isInCurrentProjectSrc(realPath)) return;
+
+        const key = document.uri.toString();
+        if (isContentChangedFromDisk(document, realPath)) {
+            changedOnWillSaveDocuments.add(key);
+        } else {
+            changedOnWillSaveDocuments.delete(key);
+        }
+    }));
+
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((document) => {
         if (!isWizWorkspaceForCurrentProject()) return;
 
@@ -207,7 +234,17 @@ function activate(context) {
         if (!realPath) return;
         if (!isInCurrentProjectSrc(realPath)) return;
 
+        const documentKey = document.uri.toString();
+        const wasChanged = changedOnWillSaveDocuments.has(documentKey);
+        changedOnWillSaveDocuments.delete(documentKey);
+
+        if (!wasChanged) return;
+
         buildManager.triggerBuild();
+    }));
+
+    context.subscriptions.push(vscode.workspace.onDidCloseTextDocument((document) => {
+        changedOnWillSaveDocuments.delete(document.uri.toString());
     }));
 
     // ==================== Commands Registration ====================

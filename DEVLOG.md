@@ -11,6 +11,7 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 
 ### v1.1.1 (ktw updated)
 
+- [052](./devlog/v1.1.1/052-save-trigger-build-and-wiz-uri-fix.md) - 저장 시 실제 변경 기반 자동 빌드 및 Wiz URI 호환성 개선
 - [051](./devlog/v1.1.1/051-auto-build-condition-fix.md) - Wiz 탭 활성화 이후 자동 빌드 조건 처리 개선
 
 ### v1.1.0 (Configs & Improvements & Refactoring)

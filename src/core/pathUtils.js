@@ -43,6 +43,11 @@ class WizPathUtils {
             } catch (e) { }
         }
 
+        // Strategy 3: Direct absolute path in URI path (newer format fallback)
+        if (uri.path && (uri.path.startsWith('/') || /^[A-Za-z]:\//.test(uri.path))) {
+            return uri.path;
+        }
+
         return null;
     }
 
