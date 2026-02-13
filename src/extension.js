@@ -261,6 +261,7 @@ function activate(context) {
         
         // Build command
         ['wizExplorer.build', () => buildManager.showBuildMenu()],
+        ['wizExplorer.selectBuildPythonInterpreter', () => buildManager.selectBuildPythonInterpreter()],
         
         // File switch commands
         ['wizExplorer.switch.info', () => navigationManager.switchFile('info')],

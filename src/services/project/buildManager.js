@@ -5,6 +5,8 @@
 
 const vscode = require('vscode');
 const cp = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 class BuildManager {
     /**
@@ -17,6 +19,7 @@ class BuildManager {
         this.getCurrentProject = options.getCurrentProject || (() => undefined);
         this.outputChannel = vscode.window.createOutputChannel('Wiz Build');
         this.buildProcess = null;
+        this.selectedPythonPath = this._readConfiguredPythonPath();
     }
 
     /**
@@ -35,12 +38,282 @@ class BuildManager {
         return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
     }
 
-    /**
-     * 빌드 실행
-     * @param {boolean} [clean=false] - Clean 빌드 여부
-     * @returns {boolean} 빌드 시작 성공 여부
-     */
-    triggerBuild(clean = false) {
+    _readConfiguredPythonPath() {
+        const configured = vscode.workspace
+            .getConfiguration('wizExplorer')
+            .get('build.pythonInterpreterPath', '');
+        return (configured || '').trim();
+    }
+
+    async _writeConfiguredPythonPath(interpreterPath) {
+        this.selectedPythonPath = interpreterPath || '';
+        await vscode.workspace
+            .getConfiguration('wizExplorer')
+            .update('build.pythonInterpreterPath', this.selectedPythonPath, vscode.ConfigurationTarget.Workspace);
+    }
+
+    _resolveWorkspaceVariable(value) {
+        if (!value) return value;
+        const wizRoot = this.getWizRoot();
+        if (!wizRoot) return value;
+        return value.replace(/\$\{workspaceFolder\}/g, wizRoot);
+    }
+
+    _isValidInterpreterPath(interpreterPath) {
+        if (!interpreterPath) return false;
+        const resolved = this._resolveWorkspaceVariable(interpreterPath);
+        return fs.existsSync(resolved);
+    }
+
+    _getWizExecutableFromInterpreter(interpreterPath) {
+        if (!this._isValidInterpreterPath(interpreterPath)) {
+            return '';
+        }
+
+        const resolvedInterpreter = this._resolveWorkspaceVariable(interpreterPath);
+        const binDir = path.dirname(resolvedInterpreter);
+        const candidates = process.platform === 'win32'
+            ? ['wiz.exe', 'wiz.cmd', 'wiz.bat']
+            : ['wiz'];
+
+        for (const candidate of candidates) {
+            const candidatePath = path.join(binDir, candidate);
+            if (fs.existsSync(candidatePath)) {
+                return candidatePath;
+            }
+        }
+
+        return '';
+    }
+
+    _formatCommandForLog(executable, args) {
+        const quoteIfNeeded = (value) => {
+            if (value === undefined || value === null) return '';
+            const text = String(value);
+            if (text.includes(' ') || text.includes('"')) {
+                return `"${text.replace(/"/g, '\\"')}"`;
+            }
+            return text;
+        };
+
+        const commandParts = [quoteIfNeeded(executable)].concat((args || []).map(quoteIfNeeded));
+        return commandParts.join(' ');
+    }
+
+    async _hasPythonInterpreterSelector() {
+        const availableCommands = await vscode.commands.getCommands(true);
+        return availableCommands.includes('python.setInterpreter');
+    }
+
+    _readPythonInterpreterFromConfig() {
+        const wizRoot = this.getWizRoot();
+        const resource = wizRoot ? vscode.Uri.file(wizRoot) : undefined;
+        const pythonConfig = vscode.workspace.getConfiguration('python', resource);
+        const configured = pythonConfig.get('defaultInterpreterPath') || pythonConfig.get('pythonPath') || '';
+        return this._resolveWorkspaceVariable((configured || '').trim());
+    }
+
+    async _readPythonInterpreterFromCommand() {
+        const availableCommands = await vscode.commands.getCommands(true);
+        if (!availableCommands.includes('python.interpreterPath')) {
+            return '';
+        }
+
+        const wizRoot = this.getWizRoot();
+        const resource = wizRoot ? vscode.Uri.file(wizRoot) : undefined;
+        const result = resource
+            ? await vscode.commands.executeCommand('python.interpreterPath', resource)
+            : await vscode.commands.executeCommand('python.interpreterPath');
+
+        if (!result) return '';
+        if (typeof result === 'string') return this._resolveWorkspaceVariable(result.trim());
+        if (typeof result === 'object') {
+            const pathValue = typeof result.path === 'string'
+                ? result.path
+                : (typeof result.fsPath === 'string' ? result.fsPath : '');
+            return this._resolveWorkspaceVariable((pathValue || '').trim());
+        }
+
+        return '';
+    }
+
+    _isWizNotFound(result) {
+        if (!result) return false;
+        const stderrText = (result.stderrText || '').toLowerCase();
+        const errorMessage = ((result.error && result.error.message) || '').toLowerCase();
+        const errorCode = result.error && result.error.code;
+
+        return errorCode === 'ENOENT'
+            || result.code === 127
+            || stderrText.includes('command not found')
+            || stderrText.includes("'wiz' is not recognized")
+            || stderrText.includes('"wiz" is not recognized')
+            || errorMessage.includes('not found')
+            || errorMessage.includes('enoent');
+    }
+
+    async _runBuildProcess(executable, args, buildCwd) {
+        return new Promise((resolve) => {
+            let stderrText = '';
+            let settled = false;
+            const fullCommand = this._formatCommandForLog(executable, args);
+
+            this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Running: ${fullCommand}`);
+
+            const processHandle = cp.spawn(executable, args, {
+                cwd: buildCwd,
+                shell: false,
+                env: {
+                    ...process.env,
+                    NO_COLOR: '1',
+                    FORCE_COLOR: '0',
+                    PWD: buildCwd,
+                    WIZ_ROOT: buildCwd,
+                    WIZ_HOME: buildCwd
+                }
+            });
+
+            this.buildProcess = processHandle;
+
+            processHandle.stdout.on('data', (data) => {
+                this.outputChannel.append(this._stripAnsi(data.toString()));
+            });
+
+            processHandle.stderr.on('data', (data) => {
+                const text = data.toString();
+                stderrText += text;
+                this.outputChannel.append(this._stripAnsi(text));
+            });
+
+            processHandle.on('close', (code) => {
+                if (settled) return;
+                settled = true;
+                this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Build finished with code ${code}`);
+                this.buildProcess = null;
+                resolve({ code, stderrText, error: null });
+            });
+
+            processHandle.on('error', (err) => {
+                if (settled) return;
+                settled = true;
+                this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Build error: ${err.message}`);
+                this.buildProcess = null;
+                resolve({ code: null, stderrText, error: err });
+            });
+        });
+    }
+
+    async _selectInterpreterWithPythonExtension() {
+        const hasSelector = await this._hasPythonInterpreterSelector();
+        if (!hasSelector) {
+            return null;
+        }
+
+        try {
+            await vscode.commands.executeCommand('python.setInterpreter');
+        } catch (_) {
+            return null;
+        }
+
+        let selectedPath = '';
+        try {
+            selectedPath = await this._readPythonInterpreterFromCommand();
+        } catch (_) {
+            selectedPath = '';
+        }
+
+        if (!this._isValidInterpreterPath(selectedPath)) {
+            selectedPath = this._readPythonInterpreterFromConfig();
+        }
+
+        if (this._isValidInterpreterPath(selectedPath)) {
+            await this._writeConfiguredPythonPath(selectedPath);
+            return selectedPath;
+        }
+
+        return null;
+    }
+
+    async _selectInterpreterByPath() {
+        const wizRoot = this.getWizRoot();
+        const entered = await vscode.window.showInputBox({
+            title: 'Wiz 빌드용 Python 실행 파일 경로',
+            prompt: '예: /Users/name/miniconda3/envs/wiz/bin/python',
+            placeHolder: 'python 실행 파일의 절대 경로를 입력하세요',
+            value: this.selectedPythonPath || ''
+        });
+
+        if (!entered) return null;
+
+        const trimmed = entered.trim();
+        const resolvedPath = path.isAbsolute(trimmed)
+            ? trimmed
+            : (wizRoot ? path.resolve(wizRoot, trimmed) : trimmed);
+
+        if (!this._isValidInterpreterPath(resolvedPath)) {
+            vscode.window.showErrorMessage(`유효한 Python 실행 파일을 찾을 수 없습니다: ${resolvedPath}`);
+            return null;
+        }
+
+        await this._writeConfiguredPythonPath(resolvedPath);
+        return resolvedPath;
+    }
+
+    async _resolvePythonInterpreter({ forcePick = false } = {}) {
+        if (!forcePick && this._isValidInterpreterPath(this.selectedPythonPath)) {
+            return this._resolveWorkspaceVariable(this.selectedPythonPath);
+        }
+
+        if (!forcePick) {
+            const fromConfig = this._readPythonInterpreterFromConfig();
+            if (this._isValidInterpreterPath(fromConfig)) {
+                await this._writeConfiguredPythonPath(fromConfig);
+                return fromConfig;
+            }
+        }
+
+        const hasSelector = await this._hasPythonInterpreterSelector();
+        if (hasSelector) {
+            const selectedByExtension = await this._selectInterpreterWithPythonExtension();
+            if (selectedByExtension) {
+                return selectedByExtension;
+            }
+            vscode.window.showInformationMessage('인터프리터 선택 결과를 확인할 수 없어 Python 경로를 직접 입력받습니다.');
+        } else {
+            vscode.window.showInformationMessage('Python 인터프리터 선택 확장을 찾지 못해 직접 경로 입력으로 진행합니다.');
+        }
+
+        return this._selectInterpreterByPath();
+    }
+
+    async _runBuildWithInterpreter(interpreterPath, args, buildCwd) {
+        const wizExecutable = this._getWizExecutableFromInterpreter(interpreterPath);
+        if (!wizExecutable) {
+            return false;
+        }
+
+        await this._runBuildProcess(wizExecutable, args, buildCwd);
+        return true;
+    }
+
+    async _pickInterpreterAndRunBuild(args, buildCwd, forcePick) {
+        const pythonInterpreter = await this._resolvePythonInterpreter({ forcePick });
+        if (!pythonInterpreter) {
+            this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Python 환경 선택이 취소되어 빌드를 중단했습니다.`);
+            return false;
+        }
+
+        const executed = await this._runBuildWithInterpreter(pythonInterpreter, args, buildCwd);
+        if (!executed) {
+            this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] 선택된 Python 환경에서 wiz 실행 파일을 찾지 못했습니다: ${pythonInterpreter}`);
+            vscode.window.showErrorMessage('선택한 Python 환경에서 wiz 실행 파일을 찾지 못했습니다. wiz가 설치된 환경을 선택하세요.');
+            return false;
+        }
+
+        return true;
+    }
+
+    async _triggerBuildInternal(clean = false) {
         const currentProject = this.getCurrentProject();
         const wizRoot = this.getWizRoot();
 
@@ -48,45 +321,73 @@ class BuildManager {
             return false;
         }
 
+        const args = ['project', 'build', '--project', currentProject];
+        if (clean) {
+            args.push('--clean');
+        }
+
+        const buildCwd = wizRoot;
+
+        const buildType = clean ? 'Clean Build' : 'Build';
+        this.outputChannel.show(true);
+        this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${buildType} project: ${currentProject}...`);
+
+        const configuredInterpreter = this._resolveWorkspaceVariable(this.selectedPythonPath);
+        const builtWithConfiguredInterpreter = await this._runBuildWithInterpreter(configuredInterpreter, args, buildCwd);
+        if (builtWithConfiguredInterpreter) {
+            return true;
+        }
+
+        if ((this.selectedPythonPath || '').trim()) {
+            this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] 저장된 Python 환경에서 wiz 실행 파일을 찾지 못했습니다. 환경을 다시 선택합니다.`);
+            return this._pickInterpreterAndRunBuild(args, buildCwd, true);
+        }
+
+        const initialResult = await this._runBuildProcess('wiz', args, buildCwd);
+        if (!this._isWizNotFound(initialResult)) {
+            return true;
+        }
+
+        const shouldPrompt = vscode.workspace
+            .getConfiguration('wizExplorer')
+            .get('build.promptPythonSelectionOnMissingWiz', true);
+
+        if (!shouldPrompt) {
+            this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] 'wiz' 명령을 찾을 수 없습니다. wizExplorer.build.pythonInterpreterPath 설정을 확인하세요.`);
+            return false;
+        }
+
+        this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] 'wiz' 명령을 찾을 수 없어 Python 환경 선택 후 재시도합니다.`);
+        return this._pickInterpreterAndRunBuild(args, buildCwd, false);
+    }
+
+    /**
+     * 빌드 실행
+     * @param {boolean} [clean=false] - Clean 빌드 여부
+     * @returns {boolean} 빌드 시작 성공 여부
+     */
+    triggerBuild(clean = false) {
         // 이전 빌드 프로세스가 실행 중이면 종료
         if (this.buildProcess) {
             this.buildProcess.kill();
             this.buildProcess = null;
         }
 
-        const buildType = clean ? 'Clean Build' : 'Build';
-        this.outputChannel.show(true);
-        this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${buildType} project: ${currentProject}...`);
-
-        const args = ['project', 'build', '--project', currentProject];
-        if (clean) {
-            args.push('--clean');
-        }
-
-        this.buildProcess = cp.spawn('wiz', args, {
-            cwd: wizRoot,
-            shell: true,
-            env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' }
-        });
-
-        this.buildProcess.stdout.on('data', (data) => {
-            this.outputChannel.append(this._stripAnsi(data.toString()));
-        });
-
-        this.buildProcess.stderr.on('data', (data) => {
-            this.outputChannel.append(this._stripAnsi(data.toString()));
-        });
-
-        this.buildProcess.on('close', (code) => {
-            this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Build finished with code ${code}`);
-            this.buildProcess = null;
-        });
-
-        this.buildProcess.on('error', (err) => {
+        this._triggerBuildInternal(clean).catch((err) => {
             this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Build error: ${err.message}`);
             this.buildProcess = null;
         });
 
+        return true;
+    }
+
+    async selectBuildPythonInterpreter() {
+        const pythonInterpreter = await this._resolvePythonInterpreter({ forcePick: true });
+        if (!pythonInterpreter) {
+            return false;
+        }
+
+        vscode.window.showInformationMessage(`Wiz 빌드 Python 환경이 설정되었습니다: ${pythonInterpreter}`);
         return true;
     }
 

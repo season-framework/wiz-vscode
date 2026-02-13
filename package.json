@@ -74,6 +74,10 @@
         "title": "Wiz: Show Build Output"
       },
       {
+        "command": "wizExplorer.selectBuildPythonInterpreter",
+        "title": "Wiz: Select Python Environment for Build"
+      },
+      {
         "command": "wizExplorer.switchProject",
         "title": "Wiz: Switch Project",
         "icon": "$(list-unordered)"
@@ -473,6 +477,10 @@
           "when": "workspaceFolderCount > 0"
         },
         {
+          "command": "wizExplorer.selectBuildPythonInterpreter",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
           "command": "wizExplorer.switchProject",
           "when": "workspaceFolderCount > 0"
         },
@@ -668,7 +676,24 @@
         "mac": "opt+6",
         "when": "wizExplorer:isAppFile || resourceScheme == 'wiz'"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Wiz Explorer",
+      "properties": {
+        "wizExplorer.build.pythonInterpreterPath": {
+          "type": "string",
+          "default": "",
+          "description": "'wiz' 명령을 찾지 못했을 때 폴백으로 사용할 Python 실행 파일 경로입니다. 비어있으면 Python 확장 인터프리터 또는 수동 입력으로 선택합니다.",
+          "scope": "resource"
+        },
+        "wizExplorer.build.promptPythonSelectionOnMissingWiz": {
+          "type": "boolean",
+          "default": true,
+          "description": "자동 빌드 중 'wiz' 명령을 찾지 못했을 때 Python 환경 선택 UI를 표시할지 여부입니다.",
+          "scope": "resource"
+        }
+      }
+    }
   },
   "scripts": {
     "lint": "eslint .",
