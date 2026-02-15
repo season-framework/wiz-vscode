@@ -18,12 +18,15 @@ class WizUriFactory {
      */
     static create(realPath, category, appTitle, typeLabel) {
         const encodedPath = WizPathUtils.encodePathToBase64(realPath);
-        const virtualName = `${appTitle} [${typeLabel}]`;
+        const label = `${appTitle} [${typeLabel}]`;
+        const safeLabel = label.replace(/[\\/]/g, ' ');
+        const uriPath = `/${safeLabel}`;
         
         return vscode.Uri.from({
             scheme: 'wiz',
-            path: `/${category}/${appTitle}/${virtualName}`,
-            query: `path=${encodeURIComponent(encodedPath)}`
+            authority: category,
+            path: uriPath,
+            query: `path=${encodeURIComponent(encodedPath)}&label=${encodeURIComponent(label)}`
         });
     }
 

@@ -169,22 +169,82 @@ function activate(context) {
         projectManager.wizRoot = workspaceRoot;
     };
 
-    context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((document) => {
-        if (!currentProject) return;
-        
+    function getCurrentProjectSrcRoot() {
+        if (!workspaceRoot || !currentProject) return undefined;
+        return path.join(workspaceRoot, 'project', currentProject, 'src');
+    }
+
+    function isWizWorkspaceForCurrentProject() {
+        const srcRoot = getCurrentProjectSrcRoot();
+        return !!(srcRoot && fs.existsSync(srcRoot));
+    }
+
+    function resolveDocumentRealPath(document) {
         const uri = document.uri;
-        
-        // wiz:// 스킴 파일도 빌드 트리거 동작
         if (uri.scheme === 'wiz') {
-            buildManager.triggerBuild();
-            return;
+            return WizPathUtils.getRealPathFromUri(uri) || null;
         }
-        
-        // 일반 file 스킴은 워크스페이스 경로 체크
         if (uri.scheme === 'file') {
-            if (workspaceRoot && !uri.fsPath.startsWith(workspaceRoot)) return;
-            buildManager.triggerBuild();
+            return uri.fsPath;
         }
+        return null;
+    }
+
+    function isInCurrentProjectSrc(filePath) {
+        const srcRoot = getCurrentProjectSrcRoot();
+        if (!srcRoot || !filePath) return false;
+
+        const normalizedSrcRoot = path.normalize(srcRoot);
+        const normalizedFilePath = path.normalize(filePath);
+
+        return normalizedFilePath === normalizedSrcRoot || normalizedFilePath.startsWith(normalizedSrcRoot + path.sep);
+    }
+
+    const changedOnWillSaveDocuments = new Set();
+
+    function isContentChangedFromDisk(document, realPath) {
+        try {
+            const diskContent = fs.existsSync(realPath) ? fs.readFileSync(realPath, 'utf8') : '';
+            return diskContent !== document.getText();
+        } catch (e) {
+            return document.isDirty;
+        }
+    }
+
+    context.subscriptions.push(vscode.workspace.onWillSaveTextDocument((event) => {
+        if (!isWizWorkspaceForCurrentProject()) return;
+
+        const document = event.document;
+        const realPath = resolveDocumentRealPath(document);
+        if (!realPath) return;
+        if (!isInCurrentProjectSrc(realPath)) return;
+
+        const key = document.uri.toString();
+        if (isContentChangedFromDisk(document, realPath)) {
+            changedOnWillSaveDocuments.add(key);
+        } else {
+            changedOnWillSaveDocuments.delete(key);
+        }
+    }));
+
+    context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((document) => {
+        if (!isWizWorkspaceForCurrentProject()) return;
+
+        const realPath = resolveDocumentRealPath(document);
+        if (!realPath) return;
+        if (!isInCurrentProjectSrc(realPath)) return;
+
+        const documentKey = document.uri.toString();
+        const wasChanged = changedOnWillSaveDocuments.has(documentKey);
+        changedOnWillSaveDocuments.delete(documentKey);
+
+        if (!wasChanged) return;
+
+        buildManager.triggerBuild();
+    }));
+
+    context.subscriptions.push(vscode.workspace.onDidCloseTextDocument((document) => {
+        changedOnWillSaveDocuments.delete(document.uri.toString());
     }));
 
     // ==================== Commands Registration ====================
@@ -201,6 +261,7 @@ function activate(context) {
         
         // Build command
         ['wizExplorer.build', () => buildManager.showBuildMenu()],
+        ['wizExplorer.selectBuildPythonInterpreter', () => buildManager.selectBuildPythonInterpreter()],
         
         // File switch commands
         ['wizExplorer.switch.info', () => navigationManager.switchFile('info')],
@@ -219,6 +280,11 @@ function activate(context) {
         ['wizExplorer.switch.scss.active', () => navigationManager.switchFile('scss')],
         ['wizExplorer.switch.api.active', () => navigationManager.switchFile('api')],
         ['wizExplorer.switch.socket.active', () => navigationManager.switchFile('socket')],
+
+        // Keyboard navigation commands
+        ['wizExplorer.navigatePrevious', () => navigationManager.navigateFile('previous')],
+        ['wizExplorer.navigateNext', () => navigationManager.navigateFile('next')],
+        ['wizExplorer.openInSplit', () => navigationManager.openCurrentInSplit()],
 
         // App Menu
         ['wizExplorer.showAppMenu', () => navigationManager.showAppMenu()],

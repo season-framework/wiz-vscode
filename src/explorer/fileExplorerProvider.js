@@ -134,6 +134,13 @@ class FileExplorerProvider {
             let items = this.getFilesAndFolders(dirPath);
             const folderName = path.basename(dirPath).toLowerCase();
 
+            // SourceCategory promotes src/angular/libs and src/angular/styles to source root.
+            // Exclude them from angular children to keep TreeItem IDs unique.
+            const srcAngularPath = path.join(this.workspaceRoot, 'src', 'angular');
+            if (dirPath === srcAngularPath) {
+                items = items.filter(item => item.label !== 'libs' && item.label !== 'styles');
+            }
+
             // Check if inside a package folder (child of src/portal)
             const portalPath = path.join(this.workspaceRoot, 'src', 'portal');
             if (path.dirname(dirPath) === portalPath) {

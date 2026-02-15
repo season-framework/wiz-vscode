@@ -338,7 +338,7 @@ class NavigationManager {
 
         // Webview가 활성화된 경우
         const activeEditor = this.getActiveEditor();
-        if (activeEditor?.panel?.active) {
+        if (activeEditor && activeEditor.panel && activeEditor.panel.active) {
             return activeEditor.appPath;
         }
 
@@ -388,6 +388,79 @@ class NavigationManager {
         await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Active });
     }
 
+    _detectActiveFileType() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || !editor.document) {
+            const activeEditor = this.getActiveEditor();
+            if (activeEditor && activeEditor.panel && activeEditor.panel.active) {
+                return 'info';
+            }
+            return null;
+        }
+
+        const uri = editor.document.uri;
+        if (uri.scheme === 'wiz') {
+            const query = new URLSearchParams(uri.query || '');
+            const label = query.get('label');
+            if (label) {
+                return WizFileUtils.getTypeFromVirtualPath(label);
+            }
+
+            const realPath = WizPathUtils.getRealPathFromUri(uri);
+            if (realPath) {
+                return WizFileUtils.getTypeFromFileName(path.basename(realPath));
+            }
+
+            const virtualName = uri.path.split('/').pop() || '';
+            return WizFileUtils.getTypeFromVirtualPath(virtualName);
+        }
+
+        if (uri.scheme === 'file') {
+            return WizFileUtils.getTypeFromFileName(path.basename(uri.fsPath));
+        }
+
+        return null;
+    }
+
+    _getNavigableTypes(dirPath) {
+        const files = WizFileUtils.readAppFiles(dirPath);
+        const { category } = WizPathUtils.parseAppFolder(dirPath);
+        const orderedTypes = category === 'route'
+            ? ['controller']
+            : ['ui', 'component', 'scss', 'api', 'socket'];
+
+        return orderedTypes.filter(type => files[type] && files[type].exists);
+    }
+
+    async navigateFile(direction) {
+        const dirPath = this.resolveCurrentAppPath();
+        if (!dirPath) return;
+
+        const availableTypes = this._getNavigableTypes(dirPath);
+        if (availableTypes.length < 2) return;
+
+        const currentType = this._detectActiveFileType();
+        if (!currentType) return;
+
+        const currentIndex = availableTypes.indexOf(currentType);
+        if (currentIndex === -1) return;
+
+        const step = direction === 'previous' ? -1 : 1;
+        const targetIndex = (currentIndex + step + availableTypes.length) % availableTypes.length;
+        await this.switchFile(availableTypes[targetIndex]);
+    }
+
+    async openCurrentInSplit() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || !editor.document) return;
+
+        await vscode.window.showTextDocument(editor.document, {
+            viewColumn: vscode.ViewColumn.Beside,
+            preview: true,
+            preserveFocus: false
+        });
+    }
+
     /**
      * 앱 파일 메뉴 표시
      * @returns {Promise<void>}
@@ -398,7 +471,7 @@ class NavigationManager {
         
         const files = WizFileUtils.readAppFiles(dirPath);
         const items = Object.entries(files)
-            .filter(([_, v]) => v.exists)
+            .filter((entry) => entry[1].exists)
             .map(([key, val]) => ({
                 label: `${val.icon} ${key.toUpperCase()}`,
                 description: val.fileName,
