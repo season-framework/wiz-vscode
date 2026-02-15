@@ -2,7 +2,7 @@
   "name": "wiz-vscode",
   "displayName": "Wiz VSCode Explorer",
   "description": "A comprehensive VS Code extension for managing Wiz Framework projects",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "publisher": "season-framework",
   "repository": {
     "type": "git",

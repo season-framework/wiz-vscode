@@ -2,7 +2,7 @@
 
 A comprehensive VS Code extension for managing [Wiz Framework](https://github.com/season-framework/wiz) projects with an enhanced file explorer, specialized editors, and intelligent project navigation.
 
-[![Version](https://img.shields.io/badge/version-1.1.0-green.svg)](https://github.com/season-framework/wiz-vscode)
+[![Version](https://img.shields.io/badge/version-1.1.1-green.svg)](https://github.com/season-framework/wiz-vscode)
 [![Wiz](https://img.shields.io/badge/wiz-%3E%3D2.5.0-blue.svg)](https://github.com/season-framework/wiz)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.60+-purple.svg)](https://code.visualstudio.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -71,16 +71,18 @@ Quick access to all major features via `Ctrl+Shift+P`:
 | `Wiz: Go to App` | Search and navigate to any app |
 | `Wiz: Create New Page/Component/Layout/Route` | Create apps with Source/Package selection |
 | `Wiz: Create New Package` | Create new Portal package |
+| `Wiz: Select Build Python Interpreter` | Select Python interpreter for builds |
 | `Wiz: Refresh Explorer` | Refresh the tree view |
 
 ### 🎯 Keyboard Shortcuts
 When editing a Wiz app (`wiz://` scheme active):
-- `Alt+1`: Open Info tab
-- `Alt+2`: Open UI/Controller tab
-- `Alt+3`: Open Component tab
-- `Alt+4`: Open SCSS tab
-- `Alt+5`: Open API tab
-- `Alt+6`: Open Socket tab
+- `Opt+A` (Mac) / `Alt+A` (Windows/Linux): Navigate to previous file type
+- `Opt+S` (Mac) / `Alt+S` (Windows/Linux): Navigate to next file type
+- `Opt+T` (Mac) / `Alt+T` (Windows/Linux): Open current document in split view
+
+**File Type Navigation Order**:
+- Apps: UI → Component → SCSS → API → Socket (cycles)
+- Routes: Controller only
 
 ### 🚀 Project Management
 - **Git Integration**: Clone projects directly from repositories
@@ -91,7 +93,8 @@ When editing a Wiz app (`wiz://` scheme active):
 - **Package Management**: Create and export Portal packages
 
 ### 🔄 Build Integration
-- **Auto-Build Trigger**: Automatic build on file save
+- **Auto-Build Trigger**: Automatic build on file save (only when content actually changes)
+- **Python Interpreter Selection**: Select Python interpreter for venv/conda environments
 - **Build Output Channel**: Real-time build log viewing
 - **Normal/Clean Build**: Choose build type as needed
 
@@ -169,8 +172,36 @@ npm install
 ### From VSIX Package
 
 ```bash
-code --install-extension wiz-vscode-1.1.0.vsix
+code --install-extension wiz-vscode-1.1.1.vsix
 ```
+
+### Building VSIX from Source
+
+To build a `.vsix` package yourself:
+
+1. **Install `@vscode/vsce`** (VS Code Extension Manager):
+```bash
+npm install -g @vscode/vsce
+```
+
+2. **Install project dependencies**:
+```bash
+npm install
+```
+
+3. **Package the extension**:
+```bash
+vsce package --no-dependencies
+```
+
+This generates `wiz-vscode-{version}.vsix` in the project root.
+
+4. **Install the generated VSIX**:
+```bash
+code --install-extension wiz-vscode-*.vsix
+```
+
+> **Note**: The `--no-dependencies` flag skips bundling `node_modules` since this extension has no runtime npm dependencies.
 
 ---
 
@@ -316,7 +347,16 @@ Open Developer Tools in Extension Host window
 
 ## 📊 Version History
 
-### v1.1.0 (Current)
+### v1.1.1 (Current)
+
+**Bug Fixes & Improvements**:
+- ✅ Auto-build only triggers on actual content changes (not every save)
+- ✅ Python interpreter selection for venv/conda build environments
+- ✅ Wiz URI compatibility improved for external extensions
+- ✅ Keyboard navigation revamped (Opt+A/S/T file type cycling)
+- ✅ Source Angular tree ID duplicate fix
+
+### v1.1.0
 
 **New Features**:
 - ✅ Copilot category for `.github` folder access
@@ -337,7 +377,7 @@ Open Developer Tools in Extension Host window
 - ✅ App/Route/Portal App editors with View Type selection
 - ✅ App creation workflows (Source and Package locations)
 - ✅ Drag & drop file operations
-- ✅ Keyboard shortcuts (Alt+1-6)
+- ✅ Keyboard shortcuts (Opt+A/S/T)
 - ✅ Auto-reveal active file
 
 **Project Management**:
@@ -362,13 +402,12 @@ Open Developer Tools in Extension Host window
 
 Detailed development logs are maintained in [devlog/](./devlog/) directory.
 
-**Recent Updates (v1.1.0)**:
-- **050**: Explorer bug fixes and sorting improvements
-- **049**: Project export with download dialog
-- **048**: Extension.js business logic separation
-- **047**: File/folder upload feature
-- **046**: Copilot category addition
-- **045**: Source/Packages folder protection
+**Recent Updates (v1.1.1)**:
+- **055**: Source Angular tree ID duplicate fix
+- **054**: Keyboard navigation improvements (Opt+A/S/T shortcuts)
+- **053**: Python interpreter selection for auto-build
+- **052**: Change-based auto-build and Wiz URI compatibility
+- **051**: Auto-build condition improvements
 
 [View Full Development History →](./DEVLOG.md)
 
@@ -384,23 +423,68 @@ Detailed development logs are maintained in [devlog/](./devlog/) directory.
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how you can help:
+We welcome contributions! Here's how you can get started:
 
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'feat: add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
+### Getting Started
+
+1. **Fork** the repository on GitHub
+2. **Clone** your fork locally:
+```bash
+git clone https://github.com/<your-username>/wiz-vscode.git
+cd wiz-vscode
+```
+3. **Install dependencies**:
+```bash
+npm install
+```
+4. **Create** a feature branch:
+```bash
+git checkout -b feature/amazing-feature
+```
+5. **Run** the extension in debug mode: Press `F5` in VS Code
+6. **Make** your changes and test thoroughly
+7. **Commit** and push:
+```bash
+git commit -m 'feat: add amazing feature'
+git push origin feature/amazing-feature
+```
+8. **Open** a Pull Request on GitHub
+
+### Development Environment
+
+- **Node.js**: 14.x or higher
+- **VS Code**: 1.60.0 or higher
+- **Debugging**: Press `F5` to launch Extension Development Host
+- **DevTools**: Use `Developer: Toggle Developer Tools` in the host window to inspect Webview DOM and console errors
 
 ### Commit Convention
 
 We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-- `feat:` New features
-- `fix:` Bug fixes
-- `docs:` Documentation changes
-- `refactor:` Code refactoring
-- `chore:` Maintenance tasks
+| Prefix | Purpose |
+|--------|---------------------|
+| `feat:` | New features |
+| `fix:` | Bug fixes |
+| `docs:` | Documentation only |
+| `refactor:` | Code refactoring |
+| `chore:` | Maintenance tasks |
+| `style:` | Formatting changes |
+| `test:` | Adding tests |
+
+### Code Guidelines
+
+- Follow the existing code style and patterns (Facade, Factory, Template Method)
+- Update `devlog/` when making significant changes
+- Keep editor classes extending `EditorBase` for consistency
+- Use `WizPathUtils` for all path parsing — avoid ad-hoc path logic
+- Register new commands in both `package.json` and `extension.js`
+- Refer to [architecture-guide.md](.github/architecture-guide.md) for detailed conventions
+
+### Reporting Issues
+
+- Use [GitHub Issues](https://github.com/season-framework/wiz-vscode/issues) to report bugs or request features
+- Include VS Code version, OS, and steps to reproduce
+- Attach relevant error logs from the Output panel or Developer Tools
 
 ---
 
