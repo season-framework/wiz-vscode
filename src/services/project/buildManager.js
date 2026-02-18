@@ -1,12 +1,13 @@
 /**
  * BuildManager - 프로젝트 빌드 관리
- * 빌드 트리거, Normal/Clean 빌드, 출력 채널 관리
+ * 빌드 트리거, Normal/Clean 빌드, 출력 채널 관리, 저장 시 자동 빌드
  */
 
 const vscode = require('vscode');
 const cp = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { WizPathUtils } = require('../../core');
 
 class BuildManager {
     /**
@@ -20,6 +21,107 @@ class BuildManager {
         this.outputChannel = vscode.window.createOutputChannel('Wiz Build');
         this.buildProcess = null;
         this.selectedPythonPath = this._readConfiguredPythonPath();
+        /** @private 편집된 document URI 추적 Set */
+        this._editedDocuments = new Set();
+    }
+
+    // ==================== Save Watcher ====================
+
+    /**
+     * 파일 저장 시 자동 빌드 이벤트 리스너를 등록한다.
+     * onDidChangeTextDocument로 편집 여부를 추적하고,
+     * onDidSaveTextDocument에서 실제 편집된 경우에만 빌드를 트리거한다.
+     * 
+     * 기존 onWillSaveTextDocument 방식은 wiz:// 커스텀 스킴에서
+     * 이벤트가 발생하지 않는 경우가 있어, onDidChangeTextDocument 방식으로 변경.
+     * @param {vscode.ExtensionContext} context
+     */
+    registerSaveWatcher(context) {
+        context.subscriptions.push(
+            vscode.workspace.onDidChangeTextDocument((event) => {
+                if (event.contentChanges.length > 0) {
+                    this._editedDocuments.add(event.document.uri.toString());
+                }
+            })
+        );
+
+        context.subscriptions.push(
+            vscode.workspace.onDidSaveTextDocument((document) => {
+                const key = document.uri.toString();
+                const wasEdited = this._editedDocuments.has(key);
+                this._editedDocuments.delete(key);
+
+                if (!wasEdited) return;
+                if (!this._isWizWorkspaceForCurrentProject()) return;
+
+                const realPath = this._resolveDocumentRealPath(document);
+                if (!realPath) return;
+                if (!this._isInCurrentProjectSrc(realPath)) return;
+
+                this.triggerBuild();
+            })
+        );
+
+        context.subscriptions.push(
+            vscode.workspace.onDidCloseTextDocument((document) => {
+                this._editedDocuments.delete(document.uri.toString());
+            })
+        );
+    }
+
+    /**
+     * 현재 프로젝트의 src 루트 경로 반환
+     * @private
+     * @returns {string|undefined}
+     */
+    _getCurrentProjectSrcRoot() {
+        const wizRoot = this.getWizRoot();
+        const currentProject = this.getCurrentProject();
+        if (!wizRoot || !currentProject) return undefined;
+        return path.join(wizRoot, 'project', currentProject, 'src');
+    }
+
+    /**
+     * 현재 프로젝트의 src 폴더가 존재하는지 확인
+     * @private
+     * @returns {boolean}
+     */
+    _isWizWorkspaceForCurrentProject() {
+        const srcRoot = this._getCurrentProjectSrcRoot();
+        return !!(srcRoot && fs.existsSync(srcRoot));
+    }
+
+    /**
+     * document의 실제 파일 경로를 반환 (wiz:// 스킴 지원)
+     * @private
+     * @param {vscode.TextDocument} document
+     * @returns {string|null}
+     */
+    _resolveDocumentRealPath(document) {
+        const uri = document.uri;
+        if (uri.scheme === 'wiz') {
+            return WizPathUtils.getRealPathFromUri(uri) || null;
+        }
+        if (uri.scheme === 'file') {
+            return uri.fsPath;
+        }
+        return null;
+    }
+
+    /**
+     * 파일 경로가 현재 프로젝트 src 안에 있는지 확인
+     * @private
+     * @param {string} filePath
+     * @returns {boolean}
+     */
+    _isInCurrentProjectSrc(filePath) {
+        const srcRoot = this._getCurrentProjectSrcRoot();
+        if (!srcRoot || !filePath) return false;
+
+        const normalizedSrcRoot = path.normalize(srcRoot);
+        const normalizedFilePath = path.normalize(filePath);
+
+        return normalizedFilePath === normalizedSrcRoot || normalizedFilePath.startsWith(normalizedSrcRoot + path.sep);
     }
 
     /**

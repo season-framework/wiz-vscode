@@ -41,6 +41,11 @@ class WizDragAndDropController {
         }
 
         const targetPath = target.resourceUri.fsPath;
+
+        // 드롭 대상 폴더가 없으면 생성
+        if (!fs.existsSync(targetPath)) {
+            fs.mkdirSync(targetPath, { recursive: true });
+        }
         
         // 내부 드래그 데이터 확인
         const transferItem = dataTransfer.get(DRAG_MIME_TYPE);
@@ -118,7 +123,7 @@ class WizDragAndDropController {
 
     /**
      * 드롭 대상으로 유효한지 확인
-     * 일반 폴더만 드롭 대상
+     * 일반 폴더 및 copilot/config 카테고리만 드롭 대상
      */
     isDropTarget(item) {
         // 폴더여야 함
@@ -127,6 +132,11 @@ class WizDragAndDropController {
         }
 
         const contextValue = item.contextValue;
+
+        // resourceUri가 있는 카테고리는 드롭 허용 (copilot, config)
+        if ((contextValue === 'copilotCategory' || contextValue === 'configCategory') && item.resourceUri) {
+            return true;
+        }
         
         // 드롭 불가 컨텍스트
         const nonDroppable = [

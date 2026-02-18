@@ -32,6 +32,7 @@ class FileManager {
         if (fileName) {
             const filePath = path.join(dir, fileName);
             try {
+                fs.mkdirSync(dir, { recursive: true });
                 fs.writeFileSync(filePath, '', 'utf8');
                 this.onRefresh();
             } catch (err) {
@@ -51,6 +52,7 @@ class FileManager {
         const folderName = await vscode.window.showInputBox({ prompt: '새 폴더 이름' });
         if (folderName) {
             try {
+                fs.mkdirSync(dir, { recursive: true });
                 fs.mkdirSync(path.join(dir, folderName), { recursive: true });
                 this.onRefresh();
             } catch (err) {

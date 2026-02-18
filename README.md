@@ -2,7 +2,7 @@
 
 A comprehensive VS Code extension for managing [Wiz Framework](https://github.com/season-framework/wiz) projects with an enhanced file explorer, specialized editors, and intelligent project navigation.
 
-[![Version](https://img.shields.io/badge/version-1.1.1-green.svg)](https://github.com/season-framework/wiz-vscode)
+[![Version](https://img.shields.io/badge/version-1.1.2-green.svg)](https://github.com/season-framework/wiz-vscode)
 [![Wiz](https://img.shields.io/badge/wiz-%3E%3D2.5.0-blue.svg)](https://github.com/season-framework/wiz)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.60+-purple.svg)](https://code.visualstudio.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -172,7 +172,7 @@ npm install
 ### From VSIX Package
 
 ```bash
-code --install-extension wiz-vscode-1.1.1.vsix
+code --install-extension wiz-vscode-1.1.2.vsix
 ```
 
 ### Building VSIX from Source
@@ -312,7 +312,12 @@ wiz-vscode/
 │   ├── explorer/             # Tree view components
 │   │   ├── models/           # Category handlers
 │   │   └── treeItems/        # Tree item classes
-│   └── extension.js          # Extension entry point
+│   ├── services/             # Business logic layer
+│   │   ├── project/          # Project/Build/MCP management
+│   │   ├── app/              # Source/Package/Navigation management
+│   │   └── file/             # File operations
+│   ├── mcp/                  # MCP server entry point
+│   └── extension.js          # Extension entry point (glue only)
 ├── resources/                # Icons and assets
 ├── devlog/                   # Development logs (001-050)
 ├── package.json              # Extension manifest
@@ -347,7 +352,17 @@ Open Developer Tools in Extension Host window
 
 ## 📊 Version History
 
-### v1.1.1 (Current)
+### v1.1.2 (Current)
+
+**Refactoring & Bug Fixes**:
+- ✅ Save watcher logic moved from extension.js to BuildManager (separation of concerns)
+- ✅ Auto-build event changed from `onWillSave` to `onDidChange` — fixes `wiz://` scheme build trigger
+- ✅ Copilot/Config category `resourceUri` now dynamically resolved (fixes file creation in wrong path)
+- ✅ File/folder creation auto-creates parent directory (`.github`, `config`)
+- ✅ Drag & drop now supported on Copilot/Config categories
+- ✅ extension.js monkey-patching removed, initialization order cleaned up
+
+### v1.1.1
 
 **Bug Fixes & Improvements**:
 - ✅ Auto-build only triggers on actual content changes (not every save)
@@ -402,12 +417,12 @@ Open Developer Tools in Extension Host window
 
 Detailed development logs are maintained in [devlog/](./devlog/) directory.
 
-**Recent Updates (v1.1.1)**:
+**Recent Updates (v1.1.2)**:
+- **057**: Copilot/Config category path fix and drag & drop support
+- **056**: Save watcher refactoring to BuildManager with event method improvement
 - **055**: Source Angular tree ID duplicate fix
 - **054**: Keyboard navigation improvements (Opt+A/S/T shortcuts)
 - **053**: Python interpreter selection for auto-build
-- **052**: Change-based auto-build and Wiz URI compatibility
-- **051**: Auto-build condition improvements
 
 [View Full Development History →](./DEVLOG.md)
 

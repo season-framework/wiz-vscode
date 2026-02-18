@@ -5,8 +5,6 @@
 
 const vscode = require('vscode');
 const path = require('path');
-const fs = require('fs');
-const cp = require('child_process');
 
 const FileExplorerProvider = require('./explorer/fileExplorerProvider');
 const AppEditorProvider = require('./editor/appEditorProvider');
@@ -46,71 +44,12 @@ function activate(context) {
     let workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     let currentProject = 'main';
 
-    function updateProjectRoot() {
-        if (!workspaceRoot) {
-            fileExplorerProvider.workspaceRoot = undefined;
-            fileExplorerProvider.wizRoot = undefined;
-            fileExplorerProvider.refresh();
-            return;
-        }
-
-        const projectPath = path.join(workspaceRoot, 'project', currentProject);
-        fileExplorerProvider.workspaceRoot = projectPath;
-        fileExplorerProvider.wizRoot = workspaceRoot;
-        fileExplorerProvider.refresh();
-        
-        if (treeView) {
-            treeView.title = currentProject;
-        }
-    }
-
     context.subscriptions.push(
         vscode.workspace.onDidChangeWorkspaceFolders(() => {
             workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
             updateProjectRoot();
         })
     );
-
-    // ==================== Tree View ====================
-    const WizDragAndDropController = require('./explorer/wizDragAndDropController');
-    const dragAndDropController = new WizDragAndDropController(fileExplorerProvider);
-    
-    const treeView = vscode.window.createTreeView('wizExplorer', {
-        treeDataProvider: fileExplorerProvider,
-        showCollapseAll: true,
-        canSelectMany: true,
-        dragAndDropController: dragAndDropController
-    });
-    context.subscriptions.push(treeView);
-    updateProjectRoot();
-
-    // Auto-reveal on file change
-    context.subscriptions.push(
-        vscode.window.onDidChangeActiveTextEditor(async editor => {
-            if (editor && treeView.visible) {
-                const uri = editor.document.uri;
-                let filePath;
-
-                if (uri.scheme === 'file') {
-                    filePath = uri.fsPath;
-                } else if (uri.scheme === 'wiz') {
-                    filePath = WizPathUtils.getRealPathFromUri(uri);
-                }
-
-                if (filePath) {
-                    try {
-                        const item = await fileExplorerProvider.findItem(filePath);
-                        if (item) {
-                            treeView.reveal(item, { select: true, focus: false, expand: true });
-                        }
-                    } catch (e) {
-                        // Ignore reveal errors
-                    }
-                }
-            }
-        })
-    );
-
 
     // ==================== Service Managers ====================
     const buildManager = new BuildManager({
@@ -158,94 +97,75 @@ function activate(context) {
     // Inject build trigger to AppEditorProvider
     appEditorProvider.onFileSaved = () => buildManager.triggerBuild(false);
 
-    // workspaceRoot 변경 시 managers도 업데이트
-    const originalUpdateProjectRoot = updateProjectRoot;
-    updateProjectRoot = function() {
-        originalUpdateProjectRoot();
+    // 파일 저장 시 자동 빌드 이벤트 등록 (BuildManager에 위임)
+    buildManager.registerSaveWatcher(context);
+
+    // ==================== Workspace State Sync ====================
+    function updateProjectRoot() {
+        if (!workspaceRoot) {
+            fileExplorerProvider.workspaceRoot = undefined;
+            fileExplorerProvider.wizRoot = undefined;
+            fileExplorerProvider.refresh();
+            return;
+        }
+
+        const projectPath = path.join(workspaceRoot, 'project', currentProject);
+        fileExplorerProvider.workspaceRoot = projectPath;
+        fileExplorerProvider.wizRoot = workspaceRoot;
+        fileExplorerProvider.refresh();
+        
+        if (treeView) {
+            treeView.title = currentProject;
+        }
+
+        // Service managers 상태 동기화
         sourceManager.workspaceRoot = fileExplorerProvider.workspaceRoot;
         packageManager.workspaceRoot = fileExplorerProvider.workspaceRoot;
         packageManager.wizRoot = fileExplorerProvider.wizRoot;
         packageManager.currentProject = currentProject;
         projectManager.wizRoot = workspaceRoot;
-    };
-
-    function getCurrentProjectSrcRoot() {
-        if (!workspaceRoot || !currentProject) return undefined;
-        return path.join(workspaceRoot, 'project', currentProject, 'src');
     }
 
-    function isWizWorkspaceForCurrentProject() {
-        const srcRoot = getCurrentProjectSrcRoot();
-        return !!(srcRoot && fs.existsSync(srcRoot));
-    }
+    // ==================== Tree View ====================
+    const WizDragAndDropController = require('./explorer/wizDragAndDropController');
+    const dragAndDropController = new WizDragAndDropController(fileExplorerProvider);
+    
+    const treeView = vscode.window.createTreeView('wizExplorer', {
+        treeDataProvider: fileExplorerProvider,
+        showCollapseAll: true,
+        canSelectMany: true,
+        dragAndDropController: dragAndDropController
+    });
+    context.subscriptions.push(treeView);
+    updateProjectRoot();
 
-    function resolveDocumentRealPath(document) {
-        const uri = document.uri;
-        if (uri.scheme === 'wiz') {
-            return WizPathUtils.getRealPathFromUri(uri) || null;
-        }
-        if (uri.scheme === 'file') {
-            return uri.fsPath;
-        }
-        return null;
-    }
+    // Auto-reveal on file change
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(async editor => {
+            if (editor && treeView.visible) {
+                const uri = editor.document.uri;
+                let filePath;
 
-    function isInCurrentProjectSrc(filePath) {
-        const srcRoot = getCurrentProjectSrcRoot();
-        if (!srcRoot || !filePath) return false;
+                if (uri.scheme === 'file') {
+                    filePath = uri.fsPath;
+                } else if (uri.scheme === 'wiz') {
+                    filePath = WizPathUtils.getRealPathFromUri(uri);
+                }
 
-        const normalizedSrcRoot = path.normalize(srcRoot);
-        const normalizedFilePath = path.normalize(filePath);
+                if (filePath) {
+                    try {
+                        const item = await fileExplorerProvider.findItem(filePath);
+                        if (item) {
+                            treeView.reveal(item, { select: true, focus: false, expand: true });
+                        }
+                    } catch (e) {
+                        // Ignore reveal errors
+                    }
+                }
+            }
+        })
+    );
 
-        return normalizedFilePath === normalizedSrcRoot || normalizedFilePath.startsWith(normalizedSrcRoot + path.sep);
-    }
-
-    const changedOnWillSaveDocuments = new Set();
-
-    function isContentChangedFromDisk(document, realPath) {
-        try {
-            const diskContent = fs.existsSync(realPath) ? fs.readFileSync(realPath, 'utf8') : '';
-            return diskContent !== document.getText();
-        } catch (e) {
-            return document.isDirty;
-        }
-    }
-
-    context.subscriptions.push(vscode.workspace.onWillSaveTextDocument((event) => {
-        if (!isWizWorkspaceForCurrentProject()) return;
-
-        const document = event.document;
-        const realPath = resolveDocumentRealPath(document);
-        if (!realPath) return;
-        if (!isInCurrentProjectSrc(realPath)) return;
-
-        const key = document.uri.toString();
-        if (isContentChangedFromDisk(document, realPath)) {
-            changedOnWillSaveDocuments.add(key);
-        } else {
-            changedOnWillSaveDocuments.delete(key);
-        }
-    }));
-
-    context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((document) => {
-        if (!isWizWorkspaceForCurrentProject()) return;
-
-        const realPath = resolveDocumentRealPath(document);
-        if (!realPath) return;
-        if (!isInCurrentProjectSrc(realPath)) return;
-
-        const documentKey = document.uri.toString();
-        const wasChanged = changedOnWillSaveDocuments.has(documentKey);
-        changedOnWillSaveDocuments.delete(documentKey);
-
-        if (!wasChanged) return;
-
-        buildManager.triggerBuild();
-    }));
-
-    context.subscriptions.push(vscode.workspace.onDidCloseTextDocument((document) => {
-        changedOnWillSaveDocuments.delete(document.uri.toString());
-    }));
 
     // ==================== Commands Registration ====================
     const commands = [

@@ -9,6 +9,11 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 
 > 각 작업의 상세 내용은 [devlog/](./devlog/) 디렉토리의 개별 파일을 참고하세요.
 
+### v1.1.2 (Save Watcher & Category Fix)
+
+- [057](./devlog/v1.1.2/057-copilot-config-category-fix.md) - Copilot/Config 카테고리 경로 동적 반환 및 파일 조작/드래그 앤 드롭 수정
+- [056](./devlog/v1.1.2/056-save-watcher-refactoring.md) - 저장 시 자동 빌드 로직 BuildManager로 이동 및 이벤트 방식 개선
+
 ### v1.1.1 (ktw updated)
 
 - [055](./devlog/v1.1.1/055-source-angular-duplicate-id-fix.md) - Source Angular 트리 ID 중복으로 인한 확장 오류 수정

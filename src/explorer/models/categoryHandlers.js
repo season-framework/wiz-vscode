@@ -146,9 +146,15 @@ class CopilotCategory extends CategoryItem {
         super('copilot', 'copilot', new vscode.ThemeIcon('copilot'));
         this.provider = provider;
         this.contextValue = 'copilotCategory';
-        if (provider.wizRoot) {
-            this.resourceUri = vscode.Uri.file(path.join(provider.wizRoot, '.github'));
-        }
+    }
+
+    get resourceUri() {
+        if (!this.provider.wizRoot) return undefined;
+        return vscode.Uri.file(path.join(this.provider.wizRoot, '.github'));
+    }
+
+    set resourceUri(_) {
+        // TreeItem 내부 할당 무시 — getter로 동적 반환
     }
 
     async getChildren() {
@@ -164,12 +170,19 @@ class ConfigCategory extends CategoryItem {
         super('config', 'config', new vscode.ThemeIcon('settings-gear'));
         this.provider = provider;
         this.contextValue = 'configCategory';
-        if (provider.workspaceRoot) {
-            this.resourceUri = vscode.Uri.file(path.join(provider.workspaceRoot, 'config'));
-        }
+    }
+
+    get resourceUri() {
+        if (!this.provider.workspaceRoot) return undefined;
+        return vscode.Uri.file(path.join(this.provider.workspaceRoot, 'config'));
+    }
+
+    set resourceUri(_) {
+        // TreeItem 내부 할당 무시 — getter로 동적 반환
     }
 
     async getChildren() {
+        if (!this.provider.workspaceRoot) return [];
         const configPath = path.join(this.provider.workspaceRoot, 'config');
         if (!fs.existsSync(configPath)) return [];
         return this.provider.getFilesAndFolders(configPath);
