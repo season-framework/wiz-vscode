@@ -129,6 +129,9 @@ function activate(context) {
 
         // 프로젝트 전환 시 편집 추적 초기화
         buildManager.clearEditedDocuments();
+
+        // MCP 서버와 상태 동기화 (.vscode/.wiz-state.json)
+        mcpManager.writeState();
     }
 
     // ==================== Tree View ====================
@@ -195,6 +198,7 @@ function activate(context) {
         ['wizExplorer.startMcpServer', () => mcpManager.start()],
         ['wizExplorer.stopMcpServer', () => mcpManager.stop()],
         ['wizExplorer.showMcpConfig', () => mcpManager.showConfig()],
+        ['wizExplorer.createMcpConfig', () => mcpManager.createConfig()],
         
         // Build command
         ['wizExplorer.build', () => buildManager.showBuildMenu()],
@@ -524,6 +528,22 @@ function activate(context) {
                     vscode.window.showWarningMessage('Wiz Explorer에서 항목을 찾을 수 없습니다.');
                 }
             }
+        }],
+
+        // Current Project info (for agent mode / command palette)
+        ['wizExplorer.currentProject', () => {
+            if (!workspaceRoot) {
+                vscode.window.showWarningMessage('워크스페이스가 열려있지 않습니다.');
+                return null;
+            }
+            const projectPath = path.join(workspaceRoot, 'project', currentProject);
+            const info = {
+                project: currentProject,
+                projectPath: projectPath,
+                workspaceRoot: workspaceRoot
+            };
+            vscode.window.showInformationMessage(`현재 Wiz 프로젝트: ${currentProject}`);
+            return info;
         }],
 
         // Create App shortcuts from command palette

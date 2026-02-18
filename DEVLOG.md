@@ -9,6 +9,15 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 
 > 각 작업의 상세 내용은 [devlog/](./devlog/) 디렉토리의 개별 파일을 참고하세요.
 
+### v1.2.1 (MCP Explorer Sync & Config)
+
+- [069](./devlog/v1.2.1/069-mcp-path-auto-resolve.md) - MCP 경로 자동 해석 (상대경로 → 프로젝트 루트 기준 절대경로 변환)
+- [068](./devlog/v1.2.1/068-mcp-explorer-project-sync.md) - MCP-Explorer 프로젝트 동기화 (상태 파일 기반 양방향 연동)
+- [067](./devlog/v1.2.1/067-mcp-config-auto-save.md) - MCP 설정 파일 자동 저장 (.vscode/mcp.json) 및 Create/Show 동적 전환
+- [066](./devlog/v1.2.1/066-mcp-menu-integration.md) - MCP 서버 시작/중지/설정을 Wiz Explorer 상단 메뉴에 통합
+- [065](./devlog/v1.2.1/065-mcp-server-tool-expansion.md) - MCP 서버 도구 16개→29개 확장 (파일시스템, 포탈앱, 검색, 헬퍼 등)
+- [064](./devlog/v1.2.1/064-current-project-command.md) - 에이전트 모드용 Current Project 커맨드 추가
+
 ### v1.2.0 (Python 환경 자동 탐색 & 패키지 관리)
 
 - [063](./devlog/v1.2.0/063-explorer-stability-improvements.md) - 탐색기 안정성 개선 (디바운스 refresh, findItem 루프 방지, auto-reveal 안전장치)

@@ -2,7 +2,7 @@
   "name": "wiz-vscode",
   "displayName": "Wiz VSCode Explorer",
   "description": "A comprehensive VS Code extension for managing Wiz Framework projects",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "publisher": "season-framework",
   "repository": {
     "type": "git",
@@ -49,15 +49,23 @@
       },
       {
         "command": "wizExplorer.startMcpServer",
-        "title": "Wiz: Start MCP Server"
+        "title": "Wiz: Start MCP Server",
+        "icon": "$(debug-start)"
       },
       {
         "command": "wizExplorer.stopMcpServer",
-        "title": "Wiz: Stop MCP Server"
+        "title": "Wiz: Stop MCP Server",
+        "icon": "$(debug-stop)"
       },
       {
         "command": "wizExplorer.showMcpConfig",
-        "title": "Wiz: Show MCP Configuration"
+        "title": "Wiz: Show MCP Configuration",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "wizExplorer.createMcpConfig",
+        "title": "Wiz: Create MCP Configuration",
+        "icon": "$(add)"
       },
       {
         "command": "wizExplorer.build",
@@ -105,6 +113,10 @@
         "command": "wizExplorer.newPackage",
         "title": "Wiz: Create New Package",
         "icon": "$(package)"
+      },
+      {
+        "command": "wizExplorer.currentProject",
+        "title": "Wiz: Current Project"
       },
       {
         "command": "wizExplorer.goToApp",
@@ -374,6 +386,26 @@
           "command": "wizExplorer.switchProject",
           "when": "view == wizExplorer",
           "group": "navigation@4"
+        },
+        {
+          "command": "wizExplorer.startMcpServer",
+          "when": "view == wizExplorer && !wizExplorer:mcpServerRunning",
+          "group": "1_mcp@1"
+        },
+        {
+          "command": "wizExplorer.stopMcpServer",
+          "when": "view == wizExplorer && wizExplorer:mcpServerRunning",
+          "group": "1_mcp@2"
+        },
+        {
+          "command": "wizExplorer.showMcpConfig",
+          "when": "view == wizExplorer && wizExplorer:mcpConfigExists",
+          "group": "1_mcp@3"
+        },
+        {
+          "command": "wizExplorer.createMcpConfig",
+          "when": "view == wizExplorer && !wizExplorer:mcpConfigExists",
+          "group": "1_mcp@3"
         }
       ],
       "view/item/context": [
@@ -481,7 +513,11 @@
         },
         {
           "command": "wizExplorer.showMcpConfig",
-          "when": "workspaceFolderCount > 0"
+          "when": "workspaceFolderCount > 0 && wizExplorer:mcpConfigExists"
+        },
+        {
+          "command": "wizExplorer.createMcpConfig",
+          "when": "workspaceFolderCount > 0 && !wizExplorer:mcpConfigExists"
         },
         {
           "command": "wizExplorer.build",
@@ -525,6 +561,10 @@
         },
         {
           "command": "wizExplorer.newPackage",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "wizExplorer.currentProject",
           "when": "workspaceFolderCount > 0"
         },
         {

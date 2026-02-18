@@ -2,7 +2,7 @@
 
 A comprehensive VS Code extension for managing [Wiz Framework](https://github.com/season-framework/wiz) projects with an enhanced file explorer, specialized editors, and intelligent project navigation.
 
-[![Version](https://img.shields.io/badge/version-1.2.0-green.svg)](https://github.com/season-framework/wiz-vscode)
+[![Version](https://img.shields.io/badge/version-1.2.1-green.svg)](https://github.com/season-framework/wiz-vscode)
 [![Wiz](https://img.shields.io/badge/wiz-%3E%3D2.5.0-blue.svg)](https://github.com/season-framework/wiz)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.60+-purple.svg)](https://code.visualstudio.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -35,23 +35,42 @@ A comprehensive VS Code extension for managing [Wiz Framework](https://github.co
 - **View Type Selection**: Choose between HTML and Pug templates
 
 ### 🤖 MCP (Model Context Protocol) Integration
-Built-in MCP server that allows AI agents (like Claude) to directly manage Wiz projects:
+Built-in MCP server that allows AI agents (like Claude) to directly manage Wiz projects. The MCP server **automatically syncs with the VS Code Explorer** — when you switch projects, the MCP server reflects the change in real-time via a shared state file.
 
 | Tool | Description |
 |------|-------------|
+| `wiz_get_workspace_state` | Get current workspace/project state (synced from Explorer) |
+| `wiz_get_project_info` | Get comprehensive project info (apps, packages, paths) |
 | `wiz_list_projects` | List all projects in workspace |
-| `wiz_switch_project` | Switch project |
+| `wiz_switch_project` | Switch project (syncs back to Explorer) |
 | `wiz_build` | Build project (Normal/Clean) |
 | `wiz_list_apps` | List apps (page, component, layout, route) |
-| `wiz_create_app` | Create new app |
+| `wiz_get_app_info` | Get detailed app info and file list |
+| `wiz_create_app` | Create new standard app |
 | `wiz_create_route` | Create new route |
+| `wiz_create_portal_app` | Create portal app in package |
+| `wiz_create_portal_route` | Create portal route in package |
 | `wiz_update_app` | Update app.json configuration |
+| `wiz_delete_app` | Delete an app/route |
+| `wiz_search_apps` | Search apps by keyword |
 | `wiz_read_app_file` | Read app file (view.html, view.ts, etc.) |
 | `wiz_write_app_file` | Write app file |
 | `wiz_list_packages` | List Portal packages |
 | `wiz_create_package` | Create new package |
+| `wiz_export_package` | Export package as .wizpkg |
+| `wiz_get_project_structure` | Get directory tree structure |
+| `wiz_list_directory` | List directory contents |
+| `wiz_read_file` | Read any file (with line range) |
+| `wiz_write_file` | Write/create any file |
+| `wiz_create_folder` | Create directory |
+| `wiz_delete_file` | Delete file/directory |
+| `wiz_rename_file` | Rename/move file |
+| `wiz_list_controllers` | List Python controllers |
+| `wiz_list_layouts` | List layout apps |
 | `wiz_export_project` | Export project |
 | `wiz_import_project` | Import project |
+
+> **Note**: `workspacePath` and `projectName` are **automatically injected** from the Explorer state. Relative paths (e.g., `portal/dizest/app/drive`) are auto-resolved to the project's `src/` directory.
 
 ### ⌨️ Command Palette Integration
 Quick access to all major features via `Ctrl+Shift+P`:
@@ -60,7 +79,8 @@ Quick access to all major features via `Ctrl+Shift+P`:
 |---------|-------------|
 | `Wiz: Start MCP Server` | Start MCP Server |
 | `Wiz: Stop MCP Server` | Stop MCP Server |
-| `Wiz: Show MCP Configuration` | Show MCP configuration for Claude Desktop |
+| `Wiz: Show MCP Configuration` | Open MCP config file (.vscode/mcp.json) |
+| `Wiz: Create MCP Configuration` | Create MCP config file (shown when mcp.json doesn't exist) |
 | `Wiz: Build Project` | Build with type selection (Normal/Clean) |
 | `Wiz: Normal Build` | Direct normal build |
 | `Wiz: Clean Build` | Direct clean build |
@@ -111,11 +131,22 @@ When editing a Wiz app (`wiz://` scheme active):
 
 ## 🤖 MCP Server Setup
 
+### VS Code Integration (Recommended)
+
+1. **Create MCP Configuration**:
+   - Press `Ctrl+Shift+P` → `Wiz: Create MCP Configuration`
+   - This creates `.vscode/mcp.json` with the correct server settings
+   - VS Code automatically detects and activates the MCP server
+
+2. **Use with VS Code Copilot Agent Mode**:
+   - MCP tools are automatically available in agent mode
+   - The server syncs with Explorer — switching projects is reflected immediately
+   - Ask the AI to manage your Wiz project
+
 ### Claude Desktop Integration
 
-1. **Show MCP Configuration**:
-   - Press `Ctrl+Shift+P` → `Wiz: Show MCP Configuration`
-   - Configuration is copied to clipboard
+1. **Copy MCP Configuration**:
+   - Open `.vscode/mcp.json` and copy the server configuration
 
 2. **Add to Claude Desktop**:
    - Open Claude Desktop settings
@@ -128,8 +159,7 @@ When editing a Wiz app (`wiz://` scheme active):
       "command": "node",
       "args": ["/path/to/wiz-vscode/src/mcp/index.js"],
       "env": {
-        "WIZ_WORKSPACE": "/path/to/your/wiz/workspace",
-        "WIZ_PROJECT": "main"
+        "WIZ_WORKSPACE": "/path/to/your/wiz/workspace"
       }
     }
   }
@@ -137,15 +167,6 @@ When editing a Wiz app (`wiz://` scheme active):
 ```
 
 3. **Restart Claude Desktop** to apply changes
-
-### VS Code Agent Mode
-
-1. **Start MCP Server**:
-   - Press `Ctrl+Shift+P` → `Wiz: Start MCP Server`
-
-2. **Use with VS Code Copilot**:
-   - MCP tools are automatically available in agent mode
-   - Ask Claude to manage your Wiz project
 
 ### Example Prompts
 
@@ -181,7 +202,7 @@ npm install
 ### From VSIX Package
 
 ```bash
-code --install-extension wiz-vscode-1.2.0.vsix
+code --install-extension wiz-vscode-1.2.1.vsix
 ```
 
 ### Building VSIX from Source
@@ -361,7 +382,20 @@ Open Developer Tools in Extension Host window
 
 ## 📊 Version History
 
-### v1.2.0 (Current)
+### v1.2.1 (Current)
+
+**MCP Explorer Sync & Config**:
+- ✅ MCP-Explorer real-time project synchronization via shared state file
+- ✅ MCP config auto-saved to `.vscode/mcp.json` (no more untitled documents)
+- ✅ Dynamic Create/Show MCP Config menu based on file existence
+- ✅ `workspacePath`/`projectName` auto-injected from Explorer state (all params optional)
+- ✅ Relative path auto-resolution (`portal/app/name` → `{projectRoot}/src/portal/app/name`)
+- ✅ `wiz_get_workspace_state` tool for agents to check current context
+- ✅ MCP server tools expanded: 16 → 30 tools
+- ✅ MCP menu integration in Explorer toolbar (Start/Stop/Config)
+- ✅ Current Project command for agent mode
+
+### v1.2.0
 
 **New Features**:
 - ✅ Python environment auto-discovery (PATH, conda, pyenv, venv, system paths)
@@ -441,11 +475,13 @@ Open Developer Tools in Extension Host window
 
 Detailed development logs are maintained in [devlog/](./devlog/) directory.
 
-**Recent Updates (v1.2.0)**:
-- **063**: Explorer stability improvements (debounced refresh, findItem loop guard)
-- **062**: pip package management Webview editor
-- **061**: npm package management Webview editor
-- **060**: Python environment auto-discovery and QuickPick selection
+**Recent Updates (v1.2.1)**:
+- **069**: MCP path auto-resolution (relative → absolute)
+- **068**: MCP-Explorer project synchronization via state file
+- **067**: MCP config auto-save to .vscode/mcp.json
+- **066**: MCP menu integration in Explorer toolbar
+- **065**: MCP server tool expansion (16 → 30 tools)
+- **064**: Current Project command for agent mode
 
 [View Full Development History →](./DEVLOG.md)
 
@@ -453,9 +489,8 @@ Detailed development logs are maintained in [devlog/](./devlog/) directory.
 
 ## 📅 Roadmap & TODO
 
-- Validate MCP features and improve Agent compatibility
-- Agent Guide documentation for WIZ CLI and main features
 - Develop wiz server cache management features (Wiz library version update expected)
+- Agent Guide documentation for WIZ CLI and main features
 
 ---
 
