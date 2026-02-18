@@ -9,6 +9,18 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 
 > 각 작업의 상세 내용은 [devlog/](./devlog/) 디렉토리의 개별 파일을 참고하세요.
 
+### v1.2.0 (Python 환경 자동 탐색 & 패키지 관리)
+
+- [063](./devlog/v1.2.0/063-explorer-stability-improvements.md) - 탐색기 안정성 개선 (디바운스 refresh, findItem 루프 방지, auto-reveal 안전장치)
+- [062](./devlog/v1.2.0/062-pip-package-manager.md) - pip 패키지 관리 Webview 에디터 추가
+- [061](./devlog/v1.2.0/061-npm-package-manager.md) - npm 패키지 관리 Webview 에디터 추가
+- [060](./devlog/v1.2.0/060-python-env-autodiscovery.md) - Python 환경 자동 탐색 및 QuickPick 선택, 설정 메뉴 구조 변경
+
+### v1.1.3 (Infinite Loop Fix & Save Performance)
+
+- [059](./devlog/v1.1.3/059-file-save-performance-fix.md) - 파일 저장 후 트리 탐색 무한 로딩 방지 및 빌드 디바운싱, Auto-Reveal 안전장치
+- [058](./devlog/v1.1.3/058-infinite-loop-fix.md) - 무한루프 방지 및 트리 안정성 개선 (디바운스 refresh, findItem 범위 제한, 편집 추적 정리)
+
 ### v1.1.2 (Save Watcher & Category Fix)
 
 - [057](./devlog/v1.1.2/057-copilot-config-category-fix.md) - Copilot/Config 카테고리 경로 동적 반환 및 파일 조작/드래그 앤 드롭 수정

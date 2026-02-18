@@ -10,6 +10,8 @@ const FileExplorerProvider = require('./explorer/fileExplorerProvider');
 const AppEditorProvider = require('./editor/appEditorProvider');
 const AppContextListener = require('./editor/appContextListener');
 const WizFileSystemProvider = require('./editor/wizFileSystemProvider');
+const NpmEditor = require('./editor/editors/npmEditor');
+const PipEditor = require('./editor/editors/pipEditor');
 const { WizPathUtils } = require('./core');
 const { SourceManager, PackageManager, ProjectManager, FileManager, BuildManager, McpManager, NavigationManager } = require('./services');
 
@@ -124,6 +126,9 @@ function activate(context) {
         packageManager.wizRoot = fileExplorerProvider.wizRoot;
         packageManager.currentProject = currentProject;
         projectManager.wizRoot = workspaceRoot;
+
+        // 프로젝트 전환 시 편집 추적 초기화
+        buildManager.clearEditedDocuments();
     }
 
     // ==================== Tree View ====================
@@ -143,6 +148,10 @@ function activate(context) {
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(async editor => {
             if (editor && treeView.visible) {
+                 // Skip auto-reveal during file save/build process to prevent loops
+                 // or if the editor is not relevant
+                 if (editor.document.isDirty) return;
+
                 const uri = editor.document.uri;
                 let filePath;
 
@@ -154,9 +163,17 @@ function activate(context) {
 
                 if (filePath) {
                     try {
-                        const item = await fileExplorerProvider.findItem(filePath);
+                        // Prevent infinite loop if update takes too long
+                        const item = await Promise.race([
+                            fileExplorerProvider.findItem(filePath),
+                            new Promise(resolve => setTimeout(() => resolve(null), 500))
+                        ]);
+                        
                         if (item) {
-                            treeView.reveal(item, { select: true, focus: false, expand: true });
+                            // Check if item still exists before revealing
+                            if (fs.existsSync(item.resourceUri.fsPath)) {
+                                treeView.reveal(item, { select: true, focus: false, expand: true });
+                            }
                         }
                     } catch (e) {
                         // Ignore reveal errors
@@ -182,6 +199,39 @@ function activate(context) {
         // Build command
         ['wizExplorer.build', () => buildManager.showBuildMenu()],
         ['wizExplorer.selectBuildPythonInterpreter', () => buildManager.selectBuildPythonInterpreter()],
+
+        // npm 패키지 관리
+        ['wizExplorer.openNpmManager', () => {
+            if (!workspaceRoot) {
+                vscode.window.showErrorMessage('워크스페이스가 열려있지 않습니다.');
+                return;
+            }
+            const npmEditor = new NpmEditor(context, {
+                wizRoot: workspaceRoot,
+                currentProject: currentProject,
+                outputChannel: buildManager.getOutputChannel()
+            });
+            npmEditor.create();
+        }],
+
+        // pip 패키지 관리
+        ['wizExplorer.openPipManager', async () => {
+            let pythonPath = buildManager.getResolvedPythonPath();
+            if (!pythonPath || !require('fs').existsSync(pythonPath)) {
+                const selected = await buildManager.selectBuildPythonInterpreter();
+                if (!selected) return;
+                pythonPath = buildManager.getResolvedPythonPath();
+            }
+            if (!pythonPath) {
+                vscode.window.showErrorMessage('Python 환경이 선택되지 않았습니다.');
+                return;
+            }
+            const pipEditor = new PipEditor(context, {
+                pythonPath: pythonPath,
+                outputChannel: buildManager.getOutputChannel()
+            });
+            pipEditor.create();
+        }],
         
         // File switch commands
         ['wizExplorer.switch.info', () => navigationManager.switchFile('info')],

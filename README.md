@@ -2,7 +2,7 @@
 
 A comprehensive VS Code extension for managing [Wiz Framework](https://github.com/season-framework/wiz) projects with an enhanced file explorer, specialized editors, and intelligent project navigation.
 
-[![Version](https://img.shields.io/badge/version-1.1.2-green.svg)](https://github.com/season-framework/wiz-vscode)
+[![Version](https://img.shields.io/badge/version-1.2.0-green.svg)](https://github.com/season-framework/wiz-vscode)
 [![Wiz](https://img.shields.io/badge/wiz-%3E%3D2.5.0-blue.svg)](https://github.com/season-framework/wiz)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.60+-purple.svg)](https://code.visualstudio.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -72,6 +72,8 @@ Quick access to all major features via `Ctrl+Shift+P`:
 | `Wiz: Create New Page/Component/Layout/Route` | Create apps with Source/Package selection |
 | `Wiz: Create New Package` | Create new Portal package |
 | `Wiz: Select Build Python Interpreter` | Select Python interpreter for builds |
+| `Wiz: npm Package Manager` | Open npm package management UI |
+| `Wiz: pip Package Manager` | Open pip package management UI |
 | `Wiz: Refresh Explorer` | Refresh the tree view |
 
 ### 🎯 Keyboard Shortcuts
@@ -94,9 +96,16 @@ When editing a Wiz app (`wiz://` scheme active):
 
 ### 🔄 Build Integration
 - **Auto-Build Trigger**: Automatic build on file save (only when content actually changes)
-- **Python Interpreter Selection**: Select Python interpreter for venv/conda environments
+- **Python Environment Auto-Discovery**: Automatically scan PATH, conda, pyenv, venv for available interpreters
+- **Python Interpreter Selection**: QuickPick-based selector with version info and wiz availability
 - **Build Output Channel**: Real-time build log viewing
 - **Normal/Clean Build**: Choose build type as needed
+
+### 📦 Package Management
+- **npm Package Manager**: Visual Webview UI for managing npm packages (install, uninstall, upgrade, search)
+- **pip Package Manager**: Visual Webview UI for managing Python pip packages
+- **Card-Based UI**: Modern card layout with real-time search filtering
+- **Integrated Access**: Available from settings menu and Command Palette
 
 ---
 
@@ -172,7 +181,7 @@ npm install
 ### From VSIX Package
 
 ```bash
-code --install-extension wiz-vscode-1.1.2.vsix
+code --install-extension wiz-vscode-1.2.0.vsix
 ```
 
 ### Building VSIX from Source
@@ -352,7 +361,22 @@ Open Developer Tools in Extension Host window
 
 ## 📊 Version History
 
-### v1.1.2 (Current)
+### v1.2.0 (Current)
+
+**New Features**:
+- ✅ Python environment auto-discovery (PATH, conda, pyenv, venv, system paths)
+- ✅ QuickPick-based Python interpreter selection with version info and wiz status
+- ✅ npm package management Webview editor (install, uninstall, upgrade, search/filter)
+- ✅ pip package management Webview editor with auto Python env selection
+- ✅ Settings menu restructured (Build / Python / npm / pip)
+
+**Improvements**:
+- ✅ Build debouncing (500ms) to prevent redundant builds on rapid saves
+- ✅ Tree explorer stability: debounced refresh, findItem loop guard, virtual folder creation whitelist
+- ✅ Auto-reveal safety: skip dirty documents, 500ms timeout, existence check
+- ✅ Card-based Webview UI with @vscode/codicons and real-time search filtering
+
+### v1.1.2
 
 **Refactoring & Bug Fixes**:
 - ✅ Save watcher logic moved from extension.js to BuildManager (separation of concerns)
@@ -417,12 +441,11 @@ Open Developer Tools in Extension Host window
 
 Detailed development logs are maintained in [devlog/](./devlog/) directory.
 
-**Recent Updates (v1.1.2)**:
-- **057**: Copilot/Config category path fix and drag & drop support
-- **056**: Save watcher refactoring to BuildManager with event method improvement
-- **055**: Source Angular tree ID duplicate fix
-- **054**: Keyboard navigation improvements (Opt+A/S/T shortcuts)
-- **053**: Python interpreter selection for auto-build
+**Recent Updates (v1.2.0)**:
+- **063**: Explorer stability improvements (debounced refresh, findItem loop guard)
+- **062**: pip package management Webview editor
+- **061**: npm package management Webview editor
+- **060**: Python environment auto-discovery and QuickPick selection
 
 [View Full Development History →](./DEVLOG.md)
 

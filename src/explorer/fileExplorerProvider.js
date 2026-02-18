@@ -16,6 +16,8 @@ class FileExplorerProvider {
         this.wizRoot = wizRoot;
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+        /** @private 디바운스된 refresh 타이머 */
+        this._pendingRefreshTimer = null;
         
         this.groupIcon = this.extensionPath 
             ? vscode.Uri.file(path.join(this.extensionPath, 'resources', 'icon.svg'))
@@ -34,14 +36,36 @@ class FileExplorerProvider {
         this._onDidChangeTreeData.fire();
     }
 
+    /**
+     * 디바운스된 refresh — 여러 호출이 연속되면 마지막 호출만 실행.
+     * getChildren 내부에서 가상 폴더 생성 후 호출하여
+     * 다중 setTimeout → refresh 캐스케이드 방지.
+     * @private
+     */
+    _deferRefresh() {
+        if (this._pendingRefreshTimer) {
+            clearTimeout(this._pendingRefreshTimer);
+        }
+        this._pendingRefreshTimer = setTimeout(() => {
+            this._pendingRefreshTimer = null;
+            this.refresh();
+        }, 100);
+    }
+
     findItem(filePath) {
         if (!fs.existsSync(filePath)) return null;
 
         // Try to find if this file is part of an App and return the App Item
         let currentPath = filePath;
         const workspaceRoot = this.workspaceRoot;
+        const wizRoot = this.wizRoot;
         
-        while (currentPath && currentPath !== workspaceRoot && path.dirname(currentPath) !== currentPath) {
+        let loopCount = 0;
+        const MAX_LOOP = 50; // Prevent infinite loops in deep structures
+
+        while (currentPath && currentPath !== workspaceRoot && currentPath !== wizRoot && path.dirname(currentPath) !== currentPath) {
+             if (loopCount++ > MAX_LOOP) break;
+             
              // 1. Check with Path Utilities (Handles Route, Portal App, etc.)
              const { isWizApp } = WizPathUtils.parseAppFolder(currentPath);
              if (isWizApp) {
@@ -226,6 +250,8 @@ class FileExplorerProvider {
                     // Create folder if it doesn't exist (virtual folder clicked)
                     if (!fs.existsSync(dirPath)) {
                         fs.mkdirSync(dirPath, { recursive: true });
+                        this._deferRefresh();
+                        return [];
                     }
                     
                     return items.map(item => {
@@ -251,15 +277,35 @@ class FileExplorerProvider {
                     // Create folder if it doesn't exist (virtual folder clicked)
                     if (!fs.existsSync(dirPath)) {
                         fs.mkdirSync(dirPath, { recursive: true });
+                        this._deferRefresh();
+                        return [];
                     }
                 }
             }
 
-            // Create virtual folder on expand if it doesn't exist
+            // Create virtual folder on expand if it doesn't exist (only for specific types)
+            // This prevents infinite loops or accidental creation of arbitrary folders
             if (!fs.existsSync(dirPath)) {
-                fs.mkdirSync(dirPath, { recursive: true });
-                this.refresh();
-                return [];
+                const basename = path.basename(dirPath);
+                
+                // Allow creation for standard App types and common forced folders
+                const allowedVirtualFolders = [
+                    ...APP_TYPES, 
+                    'model', 
+                    'controller', 
+                    'service',
+                    'assets',
+                    'libs',
+                    'styles',
+                    'route'
+                ];
+
+                if (allowedVirtualFolders.includes(basename)) {
+                    fs.mkdirSync(dirPath, { recursive: true });
+                    // 디바운스된 refresh로 다중 가상 폴더 생성 시 캐스케이드 방지
+                    this._deferRefresh();
+                    return [];
+                }
             }
 
             // Flat App Types Handling (e.g. route)

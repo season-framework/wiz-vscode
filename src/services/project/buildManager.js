@@ -23,9 +23,18 @@ class BuildManager {
         this.selectedPythonPath = this._readConfiguredPythonPath();
         /** @private 편집된 document URI 추적 Set */
         this._editedDocuments = new Set();
+        /** @private 빌드 디바운스 타이머 */
+        this._buildTimer = null;
     }
 
     // ==================== Save Watcher ====================
+
+    /**
+     * 편집 추적 Set 초기화 (프로젝트 전환 시 호출)
+     */
+    clearEditedDocuments() {
+        this._editedDocuments.clear();
+    }
 
     /**
      * 파일 저장 시 자동 빌드 이벤트 리스너를 등록한다.
@@ -130,6 +139,14 @@ class BuildManager {
      */
     getOutputChannel() {
         return this.outputChannel;
+    }
+
+    /**
+     * 현재 선택된 Python 인터프리터의 resolved 경로를 반환
+     * @returns {string}
+     */
+    getResolvedPythonPath() {
+        return this._resolveWorkspaceVariable(this.selectedPythonPath) || '';
     }
 
     /**
@@ -336,29 +353,211 @@ class BuildManager {
         return null;
     }
 
-    async _selectInterpreterByPath() {
-        const wizRoot = this.getWizRoot();
-        const entered = await vscode.window.showInputBox({
-            title: 'Wiz 빌드용 Python 실행 파일 경로',
-            prompt: '예: /Users/name/miniconda3/envs/wiz/bin/python',
-            placeHolder: 'python 실행 파일의 절대 경로를 입력하세요',
-            value: this.selectedPythonPath || ''
+    /**
+     * 시스템에서 사용 가능한 Python 인터프리터를 자동으로 탐색한다.
+     * which/where, conda, pyenv, 워크스페이스 venv 등을 검색한다.
+     * @returns {Promise<Array<{path: string, label: string, detail: string}>>}
+     * @private
+     */
+    async _discoverPythonInterpreters() {
+        const found = new Map(); // path → { label, detail }
+
+        const addIfValid = (pythonPath, source) => {
+            if (!pythonPath) return;
+            const resolved = this._resolveWorkspaceVariable(pythonPath.trim());
+            if (!resolved || found.has(resolved)) return;
+            try {
+                if (fs.existsSync(resolved)) {
+                    found.set(resolved, { source });
+                }
+            } catch (_) { /* ignore */ }
+        };
+
+        const execPromise = (cmd) => {
+            return new Promise((resolve) => {
+                cp.exec(cmd, { timeout: 5000, env: { ...process.env } }, (err, stdout) => {
+                    resolve(err ? '' : (stdout || '').trim());
+                });
+            });
+        };
+
+        // 1. which / where 로 PATH에 있는 python 탐색
+        const isWin = process.platform === 'win32';
+        const whichCmd = isWin ? 'where' : 'which -a';
+        const pythonNames = isWin
+            ? ['python', 'python3']
+            : ['python3', 'python'];
+
+        const whichPromises = pythonNames.map(async (name) => {
+            const output = await execPromise(`${whichCmd} ${name} 2>/dev/null`);
+            if (output) {
+                for (const line of output.split(/\r?\n/)) {
+                    const trimmed = line.trim();
+                    if (trimmed) addIfValid(trimmed, 'PATH');
+                }
+            }
         });
+        await Promise.all(whichPromises);
 
-        if (!entered) return null;
-
-        const trimmed = entered.trim();
-        const resolvedPath = path.isAbsolute(trimmed)
-            ? trimmed
-            : (wizRoot ? path.resolve(wizRoot, trimmed) : trimmed);
-
-        if (!this._isValidInterpreterPath(resolvedPath)) {
-            vscode.window.showErrorMessage(`유효한 Python 실행 파일을 찾을 수 없습니다: ${resolvedPath}`);
-            return null;
+        // 2. Conda 환경 탐색
+        const condaOutput = await execPromise('conda env list --json 2>/dev/null');
+        if (condaOutput) {
+            try {
+                const condaData = JSON.parse(condaOutput);
+                if (Array.isArray(condaData.envs)) {
+                    for (const envPath of condaData.envs) {
+                        const pythonBin = isWin
+                            ? path.join(envPath, 'python.exe')
+                            : path.join(envPath, 'bin', 'python');
+                        const envName = path.basename(envPath);
+                        addIfValid(pythonBin, `conda: ${envName}`);
+                    }
+                }
+            } catch (_) { /* ignore JSON parse error */ }
         }
 
-        await this._writeConfiguredPythonPath(resolvedPath);
-        return resolvedPath;
+        // 3. Pyenv 환경 탐색
+        const pyenvRoot = process.env.PYENV_ROOT || path.join(process.env.HOME || '', '.pyenv');
+        const pyenvVersionsDir = path.join(pyenvRoot, 'versions');
+        try {
+            if (fs.existsSync(pyenvVersionsDir)) {
+                const versions = fs.readdirSync(pyenvVersionsDir);
+                for (const ver of versions) {
+                    const pythonBin = path.join(pyenvVersionsDir, ver, 'bin', 'python');
+                    addIfValid(pythonBin, `pyenv: ${ver}`);
+                }
+            }
+        } catch (_) { /* ignore */ }
+
+        // 4. 워크스페이스 내 venv / .venv 탐색
+        const wizRoot = this.getWizRoot();
+        if (wizRoot) {
+            const venvDirs = ['venv', '.venv', 'env', '.env'];
+            for (const venvDir of venvDirs) {
+                const pythonBin = isWin
+                    ? path.join(wizRoot, venvDir, 'Scripts', 'python.exe')
+                    : path.join(wizRoot, venvDir, 'bin', 'python');
+                addIfValid(pythonBin, `venv: ${venvDir}`);
+            }
+        }
+
+        // 5. 일반적인 시스템 경로 탐색
+        if (!isWin) {
+            const commonPaths = [
+                '/usr/bin/python3',
+                '/usr/bin/python',
+                '/usr/local/bin/python3',
+                '/usr/local/bin/python',
+            ];
+            for (const p of commonPaths) {
+                addIfValid(p, 'system');
+            }
+        }
+
+        // 결과 정리 (버전 정보 가져오기)
+        const results = [];
+        const versionPromises = [];
+
+        for (const [pythonPath, info] of found.entries()) {
+            versionPromises.push(
+                execPromise(`"${pythonPath}" --version 2>&1`)
+                    .then((ver) => {
+                        const version = (ver || '').replace(/^Python\s*/i, '').trim();
+                        const hasWiz = this._getWizExecutableFromInterpreter(pythonPath) ? ' $(check) wiz' : '';
+                        results.push({
+                            pythonPath,
+                            label: `$(symbol-event) ${version || 'Python'}${hasWiz}`,
+                            detail: pythonPath,
+                            description: info.source
+                        });
+                    })
+                    .catch(() => {
+                        results.push({
+                            pythonPath,
+                            label: '$(symbol-event) Python',
+                            detail: pythonPath,
+                            description: info.source
+                        });
+                    })
+            );
+        }
+
+        await Promise.all(versionPromises);
+
+        // wiz가 있는 환경을 먼저 표시
+        results.sort((a, b) => {
+            const aHasWiz = a.label.includes('wiz') ? 0 : 1;
+            const bHasWiz = b.label.includes('wiz') ? 0 : 1;
+            return aHasWiz - bHasWiz;
+        });
+
+        return results;
+    }
+
+    async _selectInterpreterByPath() {
+        const wizRoot = this.getWizRoot();
+
+        // 사용 가능한 Python 환경 자동 탐색
+        const interpreters = await vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Notification, title: 'Python 환경을 검색하고 있습니다...' },
+            () => this._discoverPythonInterpreters()
+        );
+
+        // QuickPick 항목 구성
+        const items = [];
+
+        if (interpreters.length > 0) {
+            items.push({ label: '검색된 Python 환경', kind: vscode.QuickPickItemKind.Separator });
+            items.push(...interpreters);
+        }
+
+        items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
+        items.push({
+            label: '$(edit) 직접 경로 입력...',
+            detail: 'Python 실행 파일의 절대 경로를 직접 입력합니다',
+            pythonPath: '__manual__'
+        });
+
+        const selected = await vscode.window.showQuickPick(items, {
+            title: 'Wiz 빌드용 Python 환경 선택',
+            placeHolder: interpreters.length > 0
+                ? 'Python 환경을 선택하세요 ($(check) wiz = wiz 설치됨)'
+                : 'Python 환경을 찾지 못했습니다. 직접 경로를 입력하세요.',
+            matchOnDetail: true,
+            matchOnDescription: true
+        });
+
+        if (!selected) return null;
+
+        // 직접 입력 선택
+        if (selected.pythonPath === '__manual__') {
+            const entered = await vscode.window.showInputBox({
+                title: 'Wiz 빌드용 Python 실행 파일 경로',
+                prompt: '예: /Users/name/miniconda3/envs/wiz/bin/python',
+                placeHolder: 'python 실행 파일의 절대 경로를 입력하세요',
+                value: this.selectedPythonPath || ''
+            });
+
+            if (!entered) return null;
+
+            const trimmed = entered.trim();
+            const resolvedPath = path.isAbsolute(trimmed)
+                ? trimmed
+                : (wizRoot ? path.resolve(wizRoot, trimmed) : trimmed);
+
+            if (!this._isValidInterpreterPath(resolvedPath)) {
+                vscode.window.showErrorMessage(`유효한 Python 실행 파일을 찾을 수 없습니다: ${resolvedPath}`);
+                return null;
+            }
+
+            await this._writeConfiguredPythonPath(resolvedPath);
+            return resolvedPath;
+        }
+
+        // 리스트에서 선택
+        const selectedPath = selected.pythonPath;
+        await this._writeConfiguredPythonPath(selectedPath);
+        return selectedPath;
     }
 
     async _resolvePythonInterpreter({ forcePick = false } = {}) {
@@ -464,14 +663,37 @@ class BuildManager {
     }
 
     /**
-     * 빌드 실행
+     * 빌드 실행 (디바운스 적용)
      * @param {boolean} [clean=false] - Clean 빌드 여부
-     * @returns {boolean} 빌드 시작 성공 여부
+     * @returns {boolean} 빌드 시작 예약 성공 여부
      */
     triggerBuild(clean = false) {
+        // 기존 대기 중인 빌드 취소
+        if (this._buildTimer) {
+            clearTimeout(this._buildTimer);
+            this._buildTimer = null;
+        }
+
+        // 500ms 후 빌드 실행 (연속 저장 시 마지막 요청만 수행)
+        this._buildTimer = setTimeout(() => {
+            this._execTriggerBuild(clean);
+        }, 500);
+
+        return true;
+    }
+
+    /**
+     * 실제 빌드 로직 실행
+     * @private
+     */
+    _execTriggerBuild(clean) {
         // 이전 빌드 프로세스가 실행 중이면 종료
         if (this.buildProcess) {
-            this.buildProcess.kill();
+            try {
+                process.kill(this.buildProcess.pid); // child_process.kill()은 때때로 동작하지 않을 수 있음
+            } catch (e) {
+                // ignore
+            }
             this.buildProcess = null;
         }
 
@@ -479,8 +701,6 @@ class BuildManager {
             this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] Build error: ${err.message}`);
             this.buildProcess = null;
         });
-
-        return true;
     }
 
     async selectBuildPythonInterpreter() {
@@ -520,10 +740,47 @@ class BuildManager {
     }
 
     /**
-     * 빌드 타입 선택 후 실행
+     * 상위 메뉴: Wiz 빌드 / Python 환경 선택
      * @returns {Promise<boolean>} 성공 여부
      */
     async showBuildMenu() {
+        const menuOptions = [
+            { label: '$(tools) Wiz 빌드', description: '프로젝트 빌드 실행', value: 'build' },
+            { label: '$(symbol-event) Python 가상환경 선택', description: '빌드에 사용할 Python 환경 변경', value: 'python' },
+            { label: '$(package) npm 패키지 관리', description: '패키지 설치, 업그레이드, 삭제', value: 'npm' },
+            { label: '$(symbol-method) pip 패키지 관리', description: 'Python 패키지 설치, 업그레이드, 삭제', value: 'pip' }
+        ];
+
+        const selected = await vscode.window.showQuickPick(menuOptions, {
+            title: 'Wiz 설정',
+            placeHolder: '실행할 작업을 선택하세요'
+        });
+
+        if (!selected) return false;
+
+        if (selected.value === 'python') {
+            return this.selectBuildPythonInterpreter();
+        }
+
+        if (selected.value === 'npm') {
+            await vscode.commands.executeCommand('wizExplorer.openNpmManager');
+            return true;
+        }
+
+        if (selected.value === 'pip') {
+            await vscode.commands.executeCommand('wizExplorer.openPipManager');
+            return true;
+        }
+
+        return this._showBuildTypeMenu();
+    }
+
+    /**
+     * 빌드 타입 선택 후 실행 (Normal / Clean)
+     * @returns {Promise<boolean>} 성공 여부
+     * @private
+     */
+    async _showBuildTypeMenu() {
         const currentProject = this.getCurrentProject();
         if (!currentProject) {
             vscode.window.showErrorMessage('프로젝트가 선택되지 않았습니다.');
