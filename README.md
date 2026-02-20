@@ -2,7 +2,7 @@
 
 A comprehensive VS Code extension for managing [Wiz Framework](https://github.com/season-framework/wiz) projects with an enhanced file explorer, specialized editors, and intelligent project navigation.
 
-[![Version](https://img.shields.io/badge/version-1.2.1-green.svg)](https://github.com/season-framework/wiz-vscode)
+[![Version](https://img.shields.io/badge/version-1.2.2-green.svg)](https://github.com/season-framework/wiz-vscode)
 [![Wiz](https://img.shields.io/badge/wiz-%3E%3D2.5.0-blue.svg)](https://github.com/season-framework/wiz)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.60+-purple.svg)](https://code.visualstudio.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -69,6 +69,12 @@ Built-in MCP server that allows AI agents (like Claude) to directly manage Wiz p
 | `wiz_list_layouts` | List layout apps |
 | `wiz_export_project` | Export project |
 | `wiz_import_project` | Import project |
+| `wiz_pip_list` | List installed pip packages |
+| `wiz_pip_install` | Install pip package(s) |
+| `wiz_pip_uninstall` | Uninstall pip package(s) |
+| `wiz_npm_list` | List installed npm packages |
+| `wiz_npm_install` | Install npm package(s) |
+| `wiz_npm_uninstall` | Uninstall npm package(s) |
 
 > **Note**: `workspacePath` and `projectName` are **automatically injected** from the Explorer state. Relative paths (e.g., `portal/dizest/app/drive`) are auto-resolved to the project's `src/` directory.
 
@@ -202,7 +208,7 @@ npm install
 ### From VSIX Package
 
 ```bash
-code --install-extension wiz-vscode-1.2.1.vsix
+code --install-extension wiz-vscode-1.2.2.vsix
 ```
 
 ### Building VSIX from Source
@@ -382,7 +388,18 @@ Open Developer Tools in Extension Host window
 
 ## 📊 Version History
 
-### v1.2.1 (Current)
+### v1.2.2 (Current)
+
+**Route Title Display & MCP Dependency Management**:
+- ✅ Route/Portal App tree items now display Title instead of ID (ID shown as description)
+- ✅ Portal App tree items also display Title from app.json
+- ✅ MCP Dependency Management: 6 new tools for pip/npm package management
+- ✅ `wiz_pip_list` / `wiz_pip_install` / `wiz_pip_uninstall` — pip package management via MCP
+- ✅ `wiz_npm_list` / `wiz_npm_install` / `wiz_npm_uninstall` — npm package management via MCP
+- ✅ Auto-detect workspace venv for pip, project package.json for npm
+- ✅ MCP server tools expanded: 30 → 36 tools
+
+### v1.2.1
 
 **MCP Explorer Sync & Config**:
 - ✅ MCP-Explorer real-time project synchronization via shared state file
@@ -475,13 +492,9 @@ Open Developer Tools in Extension Host window
 
 Detailed development logs are maintained in [devlog/](./devlog/) directory.
 
-**Recent Updates (v1.2.1)**:
-- **069**: MCP path auto-resolution (relative → absolute)
-- **068**: MCP-Explorer project synchronization via state file
-- **067**: MCP config auto-save to .vscode/mcp.json
-- **066**: MCP menu integration in Explorer toolbar
-- **065**: MCP server tool expansion (16 → 30 tools)
-- **064**: Current Project command for agent mode
+**Recent Updates (v1.2.2)**:
+- **071**: MCP pip/npm dependency management tools (6 new tools)
+- **070**: Route/Portal App tree items display Title instead of ID
 
 [View Full Development History →](./DEVLOG.md)
 

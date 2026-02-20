@@ -256,6 +256,19 @@ class FileExplorerProvider {
                     
                     return items.map(item => {
                         if (item.isDirectory) {
+                            // Read app.json for title display
+                            try {
+                                const appJsonPath = path.join(item.resourceUri.fsPath, 'app.json');
+                                if (fs.existsSync(appJsonPath)) {
+                                    const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf8'));
+                                    if (appJson.title) {
+                                        item.description = item.label;
+                                        item.label = appJson.title;
+                                    }
+                                }
+                            } catch (e) {
+                                // Ignore read errors
+                            }
                             item.collapsibleState = vscode.TreeItemCollapsibleState.None;
                             item.command = {
                                 command: 'wizExplorer.openAppEditor',
@@ -312,6 +325,19 @@ class FileExplorerProvider {
             if (FLAT_APP_TYPES.includes(folderName)) {
                 return items.map(item => {
                     if (item.isDirectory) {
+                        // Read app.json for title display
+                        try {
+                            const appJsonPath = path.join(item.resourceUri.fsPath, 'app.json');
+                            if (fs.existsSync(appJsonPath)) {
+                                const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf8'));
+                                if (appJson.title) {
+                                    item.description = item.label;
+                                    item.label = appJson.title;
+                                }
+                            }
+                        } catch (e) {
+                            // Ignore read errors
+                        }
                         item.collapsibleState = vscode.TreeItemCollapsibleState.None;
                         item.command = {
                             command: 'wizExplorer.openAppEditor',

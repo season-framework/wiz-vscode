@@ -9,6 +9,11 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 
 > 각 작업의 상세 내용은 [devlog/](./devlog/) 디렉토리의 개별 파일을 참고하세요.
 
+### v1.2.2 (Route Title Display & MCP Dependency Management)
+
+- [071](./devlog/v1.2.2/071-mcp-dependency-management.md) - MCP pip/npm 패키지 관리 도구 추가 (6개 도구: 설치, 제거, 목록 조회)
+- [070](./devlog/v1.2.2/070-route-title-display.md) - Route/Portal App 트리 아이템 Title 표시 (ID → Title 전환)
+
 ### v1.2.1 (MCP Explorer Sync & Config)
 
 - [069](./devlog/v1.2.1/069-mcp-path-auto-resolve.md) - MCP 경로 자동 해석 (상대경로 → 프로젝트 루트 기준 절대경로 변환)

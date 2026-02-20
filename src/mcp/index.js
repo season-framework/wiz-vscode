@@ -10,6 +10,7 @@
  *   - Build (1): 프로젝트 빌드 (normal/clean)
  *   - App Management (9): 앱/라우트/포탈앱/포탈라우트 CRUD
  *   - Package Management (3): 포탈 패키지 관리
+ *   - Dependency Management (6): pip/npm 패키지 설치, 제거, 목록 조회
  *   - File System (7): 범용 파일/폴더 읽기, 쓰기, 삭제, 이름변경
  *   - App File Shortcuts (2): 앱 폴더 내 파일 바로가기
  *   - Development Helpers (3): 컨트롤러/레이아웃 목록, 앱 검색
@@ -311,6 +312,13 @@ class WizMcpServer {
             wiz_list_packages: this.listPackages,
             wiz_create_package: this.createPackage,
             wiz_export_package: this.exportPackage,
+            // Dependency Management (pip / npm)
+            wiz_pip_list: this.pipList,
+            wiz_pip_install: this.pipInstall,
+            wiz_pip_uninstall: this.pipUninstall,
+            wiz_npm_list: this.npmList,
+            wiz_npm_install: this.npmInstall,
+            wiz_npm_uninstall: this.npmUninstall,
             // File System Operations
             wiz_get_project_structure: this.getProjectStructure,
             wiz_list_directory: this.listDirectory,
@@ -767,6 +775,159 @@ class WizMcpServer {
                         }
                     },
                     required: ['workspacePath', 'projectName', 'packageName']
+                }
+            },
+
+            // ==================== Dependency Management (pip / npm) ====================
+            {
+                name: 'wiz_pip_list',
+                description: 'List installed Python pip packages in the Wiz workspace virtual environment. Returns package names and versions.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        workspacePath: {
+                            type: 'string',
+                            description: 'Path to the Wiz workspace root'
+                        },
+                        outdated: {
+                            type: 'boolean',
+                            description: 'If true, list only outdated packages with current and latest versions',
+                            default: false
+                        }
+                    },
+                    required: ['workspacePath']
+                }
+            },
+            {
+                name: 'wiz_pip_install',
+                description: 'Install Python pip package(s) in the Wiz workspace virtual environment. Supports version specifiers (e.g., "flask>=2.0", "requests==2.28.0").',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        workspacePath: {
+                            type: 'string',
+                            description: 'Path to the Wiz workspace root'
+                        },
+                        packages: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: 'List of package names to install (e.g., ["flask", "requests>=2.28"])'
+                        },
+                        upgrade: {
+                            type: 'boolean',
+                            description: 'If true, upgrade packages to the latest version',
+                            default: false
+                        }
+                    },
+                    required: ['workspacePath', 'packages']
+                }
+            },
+            {
+                name: 'wiz_pip_uninstall',
+                description: 'Uninstall Python pip package(s) from the Wiz workspace virtual environment.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        workspacePath: {
+                            type: 'string',
+                            description: 'Path to the Wiz workspace root'
+                        },
+                        packages: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: 'List of package names to uninstall'
+                        }
+                    },
+                    required: ['workspacePath', 'packages']
+                }
+            },
+            {
+                name: 'wiz_npm_list',
+                description: 'List installed npm packages in the Wiz project. Returns package names and versions from the project-level node_modules.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        workspacePath: {
+                            type: 'string',
+                            description: 'Path to the Wiz workspace root'
+                        },
+                        projectName: {
+                            type: 'string',
+                            description: 'Name of the project'
+                        },
+                        global: {
+                            type: 'boolean',
+                            description: 'If true, list workspace-level packages instead of project-level',
+                            default: false
+                        },
+                        outdated: {
+                            type: 'boolean',
+                            description: 'If true, list only outdated packages with current/wanted/latest versions',
+                            default: false
+                        }
+                    },
+                    required: ['workspacePath', 'projectName']
+                }
+            },
+            {
+                name: 'wiz_npm_install',
+                description: 'Install npm package(s) in the Wiz project. Supports version specifiers (e.g., "lodash@4.17.21"). Installs to the project directory by default.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        workspacePath: {
+                            type: 'string',
+                            description: 'Path to the Wiz workspace root'
+                        },
+                        projectName: {
+                            type: 'string',
+                            description: 'Name of the project'
+                        },
+                        packages: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: 'List of package names to install (e.g., ["lodash", "axios@1.6.0"])'
+                        },
+                        dev: {
+                            type: 'boolean',
+                            description: 'If true, install as devDependencies (--save-dev)',
+                            default: false
+                        },
+                        global: {
+                            type: 'boolean',
+                            description: 'If true, install to workspace root instead of project directory',
+                            default: false
+                        }
+                    },
+                    required: ['workspacePath', 'projectName', 'packages']
+                }
+            },
+            {
+                name: 'wiz_npm_uninstall',
+                description: 'Uninstall npm package(s) from the Wiz project.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        workspacePath: {
+                            type: 'string',
+                            description: 'Path to the Wiz workspace root'
+                        },
+                        projectName: {
+                            type: 'string',
+                            description: 'Name of the project'
+                        },
+                        packages: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: 'List of package names to uninstall'
+                        },
+                        global: {
+                            type: 'boolean',
+                            description: 'If true, uninstall from workspace root instead of project directory',
+                            default: false
+                        }
+                    },
+                    required: ['workspacePath', 'projectName', 'packages']
                 }
             },
 
@@ -1553,6 +1714,195 @@ class WizMcpServer {
         await exec(`cd "${packagePath}" && zip -r "${outputPath}" .`);
 
         return this._jsonResult({ success: true, outputPath });
+    }
+
+    // ==================== Dependency Management (pip / npm) ====================
+
+    /**
+     * pip 실행 경로 결정 (venv 우선, 폴백으로 시스템 pip)
+     */
+    _getPipPath(workspacePath) {
+        const venvPaths = [
+            path.join(workspacePath, 'venv', 'bin', 'pip'),
+            path.join(workspacePath, '.venv', 'bin', 'pip'),
+            path.join(workspacePath, 'env', 'bin', 'pip'),
+        ];
+        for (const p of venvPaths) {
+            if (fs.existsSync(p)) return p;
+        }
+        // pip3 우선, 없으면 pip
+        return 'pip3';
+    }
+
+    /**
+     * npm 실행 디렉토리 결정
+     */
+    _getNpmCwd(workspacePath, projectName, global) {
+        if (global) return workspacePath;
+        const projectPath = path.join(workspacePath, 'project', projectName);
+        // package.json이 프로젝트 디렉토리에 있으면 그곳, 아니면 workspace root
+        if (fs.existsSync(path.join(projectPath, 'package.json'))) {
+            return projectPath;
+        }
+        return workspacePath;
+    }
+
+    async pipList({ workspacePath, outdated = false }) {
+        const pip = this._getPipPath(workspacePath);
+        const args = outdated ? 'list --outdated --format=json' : 'list --format=json';
+
+        try {
+            const { stdout } = await exec(`${pip} ${args}`, { cwd: workspacePath });
+            const packages = JSON.parse(stdout);
+            return this._jsonResult({
+                packages,
+                count: packages.length,
+                pip,
+                outdated
+            });
+        } catch (error) {
+            throw new Error(`pip list failed: ${error.message}`);
+        }
+    }
+
+    async pipInstall({ workspacePath, packages, upgrade = false }) {
+        if (!packages || packages.length === 0) {
+            throw new Error('No packages specified');
+        }
+
+        const pip = this._getPipPath(workspacePath);
+        const upgradeFlag = upgrade ? ' --upgrade' : '';
+        const pkgStr = packages.map(p => `"${p}"`).join(' ');
+
+        try {
+            const { stdout, stderr } = await exec(
+                `${pip} install${upgradeFlag} ${pkgStr}`,
+                { cwd: workspacePath }
+            );
+            return this._jsonResult({
+                success: true,
+                packages,
+                output: stdout,
+                warnings: stderr || null
+            });
+        } catch (error) {
+            throw new Error(`pip install failed: ${error.message}`);
+        }
+    }
+
+    async pipUninstall({ workspacePath, packages }) {
+        if (!packages || packages.length === 0) {
+            throw new Error('No packages specified');
+        }
+
+        const pip = this._getPipPath(workspacePath);
+        const pkgStr = packages.map(p => `"${p}"`).join(' ');
+
+        try {
+            const { stdout, stderr } = await exec(
+                `${pip} uninstall -y ${pkgStr}`,
+                { cwd: workspacePath }
+            );
+            return this._jsonResult({
+                success: true,
+                packages,
+                output: stdout,
+                warnings: stderr || null
+            });
+        } catch (error) {
+            throw new Error(`pip uninstall failed: ${error.message}`);
+        }
+    }
+
+    async npmList({ workspacePath, projectName, global = false, outdated = false }) {
+        const cwd = this._getNpmCwd(workspacePath, projectName, global);
+
+        try {
+            if (outdated) {
+                // npm outdated는 outdated 패키지가 있으면 exit code 1을 반환
+                try {
+                    const { stdout } = await exec('npm outdated --json', { cwd });
+                    const packages = JSON.parse(stdout || '{}');
+                    return this._jsonResult({ packages, cwd, outdated: true });
+                } catch (e) {
+                    // npm outdated는 패키지가 있으면 exit code 1 반환 (정상 동작)
+                    if (e.stdout) {
+                        const packages = JSON.parse(e.stdout || '{}');
+                        return this._jsonResult({ packages, cwd, outdated: true });
+                    }
+                    throw e;
+                }
+            } else {
+                const { stdout } = await exec('npm list --json --depth=0', { cwd });
+                const result = JSON.parse(stdout);
+                const dependencies = result.dependencies || {};
+                const packages = Object.entries(dependencies).map(([name, info]) => ({
+                    name,
+                    version: info.version || 'unknown'
+                }));
+                return this._jsonResult({ packages, count: packages.length, cwd });
+            }
+        } catch (error) {
+            throw new Error(`npm list failed: ${error.message}`);
+        }
+    }
+
+    async npmInstall({ workspacePath, projectName, packages, dev = false, global = false }) {
+        if (!packages || packages.length === 0) {
+            throw new Error('No packages specified');
+        }
+
+        const cwd = this._getNpmCwd(workspacePath, projectName, global);
+        const devFlag = dev ? ' --save-dev' : '';
+        const pkgStr = packages.map(p => `"${p}"`).join(' ');
+
+        // package.json이 없으면 초기화
+        const pkgJsonPath = path.join(cwd, 'package.json');
+        if (!fs.existsSync(pkgJsonPath)) {
+            await exec('npm init -y', { cwd });
+        }
+
+        try {
+            const { stdout, stderr } = await exec(
+                `npm install${devFlag} ${pkgStr}`,
+                { cwd }
+            );
+            return this._jsonResult({
+                success: true,
+                packages,
+                dev,
+                output: stdout,
+                warnings: stderr || null,
+                cwd
+            });
+        } catch (error) {
+            throw new Error(`npm install failed: ${error.message}`);
+        }
+    }
+
+    async npmUninstall({ workspacePath, projectName, packages, global = false }) {
+        if (!packages || packages.length === 0) {
+            throw new Error('No packages specified');
+        }
+
+        const cwd = this._getNpmCwd(workspacePath, projectName, global);
+        const pkgStr = packages.map(p => `"${p}"`).join(' ');
+
+        try {
+            const { stdout, stderr } = await exec(
+                `npm uninstall ${pkgStr}`,
+                { cwd }
+            );
+            return this._jsonResult({
+                success: true,
+                packages,
+                output: stdout,
+                warnings: stderr || null,
+                cwd
+            });
+        } catch (error) {
+            throw new Error(`npm uninstall failed: ${error.message}`);
+        }
     }
 
     // ==================== File System Operations ====================
