@@ -153,15 +153,19 @@ class McpManager {
 
     /**
      * MCP 설정 객체 생성
+     * ${extensionInstallFolder:publisher.extensionId} 변수를 사용하여
+     * 어떤 환경에서든 올바른 익스텐션 경로를 참조할 수 있도록 함
      * @returns {Object} MCP 설정 객체
      */
     getConfig() {
+        const extFolder = '${extensionInstallFolder:season-framework.wiz-vscode}';
         return {
             servers: {
                 wiz: {
                     command: 'node',
-                    args: [path.join(this.extensionPath, 'src', 'mcp', 'index.js')],
+                    args: [`${extFolder}/src/mcp/index.js`],
                     env: {
+                        NODE_PATH: `${extFolder}/node_modules`,
                         WIZ_WORKSPACE: this.getWizRoot() || ''
                     }
                 }
