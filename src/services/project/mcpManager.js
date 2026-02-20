@@ -59,9 +59,11 @@ class McpManager {
         const mcpServerPath = path.join(this.extensionPath, 'src', 'mcp', 'index.js');
         const wizRoot = this.getWizRoot();
 
+        const nodeModulesPath = path.join(this.extensionPath, 'node_modules');
         this.serverProcess = cp.spawn('node', [mcpServerPath], {
             cwd: wizRoot,
-            stdio: ['pipe', 'pipe', 'pipe']
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: { ...process.env, NODE_PATH: nodeModulesPath }
         });
 
         this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] MCP Server started`);

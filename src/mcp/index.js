@@ -16,7 +16,7 @@
  *   - Development Helpers (3): 컨트롤러/레이아웃 목록, 앱 검색
  */
 
-const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
+const { Server } = require('@modelcontextprotocol/sdk/server');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const {
     CallToolRequestSchema,
