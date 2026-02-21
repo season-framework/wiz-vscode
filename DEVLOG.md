@@ -9,6 +9,14 @@ Wiz Framework 프로젝트를 위한 VS Code 익스텐션 개발 이력입니다
 
 > 각 작업의 상세 내용은 [devlog/](./devlog/) 디렉토리의 개별 파일을 참고하세요.
 
+### v1.3.0 (MCP Native Delegation & Auto Update)
+
+- [076](./devlog/v1.3.0/076-mcp-native-delegation-and-version-update.md) - MCP 네이티브 위임 (cp.spawn 제거), GitHub vsix 자동 업데이트, 버전 상태 표시
+- [075](./devlog/v1.3.0/075-mcp-state-sync-and-github-import.md) - MCP 상태 동기화 개선, mcp.json 자동 생성, Git에서 .github 불러오기
+- [074](./devlog/v1.3.0/074-session-based-state-management.md) - 세션 기반 MCP 상태 관리 (다중 인스턴스 충돌 방지, 7일 만료 자동 정리)
+- [073](./devlog/v1.3.0/073-settings-category-and-ux-improvements.md) - Settings 카테고리 전면 구축, MCP 설정 메뉴/상태 동기화, 프로젝트명 복사, 빌드 UX 개선
+- [072](./devlog/v1.3.0/072-mcp-config-version-sync-and-explorer-footer.md) - MCP 설정 버전/경로 자동 동기화, mcp.json 유무 기반 메뉴 노출 정리, 탐색기 하단 버전 푸터 추가
+
 ### v1.2.2 (Route Title Display & MCP Dependency Management)
 
 - [071](./devlog/v1.2.2/071-mcp-dependency-management.md) - MCP pip/npm 패키지 관리 도구 추가 (6개 도구: 설치, 제거, 목록 조회)

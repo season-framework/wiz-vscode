@@ -189,4 +189,127 @@ class ConfigCategory extends CategoryItem {
     }
 }
 
-module.exports = { SourceCategory, PortalCategory, ProjectCategory, CopilotCategory, ConfigCategory };
+/**
+ * Wiz Settings 카테고리
+ * 버전 표시, MCP 설정, Python/npm 패키지 관리 등 설정 메뉴를 그룹화
+ */
+class SettingsCategory extends CategoryItem {
+    constructor(provider) {
+        super('wiz settings', 'wizSettings', new vscode.ThemeIcon('gear'));
+        this.provider = provider;
+        this.contextValue = 'settingsCategory';
+        this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+    }
+
+    async getChildren() {
+        const items = [];
+        const version = this.provider.extensionVersion || 'unknown';
+        const projectName = this.provider.currentProjectName || 'main';
+
+        // 0. Current Project (copy on click)
+        const projectItem = new vscode.TreeItem(`project: ${projectName}`, vscode.TreeItemCollapsibleState.None);
+        projectItem.iconPath = new vscode.ThemeIcon('symbol-string');
+        projectItem.command = {
+            command: 'wizExplorer.copyProjectName',
+            title: 'Copy Current Project Name'
+        };
+        projectItem.contextValue = 'settingsItem';
+        items.push(projectItem);
+
+        // 1. Version
+        const latestVersion = this.provider.latestVersion;
+        const hasUpdate = latestVersion && this._compareVersions(latestVersion, version) > 0;
+        const versionLabel = hasUpdate
+            ? `version: v${version} → v${latestVersion}`
+            : `version: v${version}`;
+        const versionItem = new vscode.TreeItem(versionLabel, vscode.TreeItemCollapsibleState.None);
+        versionItem.iconPath = new vscode.ThemeIcon(hasUpdate ? 'cloud-download' : 'info');
+        versionItem.tooltip = hasUpdate
+            ? `새 버전 v${latestVersion} 사용 가능 (현재 v${version}). 클릭하여 업데이트`
+            : `Wiz VSCode Extension v${version} (최신)`;
+        if (hasUpdate) {
+            versionItem.description = '⬆ update';
+            versionItem.command = {
+                command: 'wizExplorer.updateExtension',
+                title: 'Update Extension'
+            };
+        }
+        versionItem.contextValue = 'settingsItem';
+        items.push(versionItem);
+
+        // 2. MCP Configuration
+        const mcpConfigExists = this.provider.mcpConfigExists;
+        const mcpConfigItem = new vscode.TreeItem(
+            mcpConfigExists ? 'mcp configuration' : 'mcp configuration (create)',
+            vscode.TreeItemCollapsibleState.None
+        );
+        mcpConfigItem.iconPath = new vscode.ThemeIcon(mcpConfigExists ? 'settings-gear' : 'add');
+        mcpConfigItem.command = {
+            command: 'wizExplorer.mcpConfigMenu',
+            title: 'MCP Configuration'
+        };
+        mcpConfigItem.contextValue = 'settingsItem';
+        items.push(mcpConfigItem);
+
+        // 3. Clean Build
+        const cleanBuildItem = new vscode.TreeItem('clean build', vscode.TreeItemCollapsibleState.None);
+        cleanBuildItem.iconPath = new vscode.ThemeIcon('trash');
+        cleanBuildItem.command = {
+            command: 'wizExplorer.cleanBuild',
+            title: 'Clean Build'
+        };
+        cleanBuildItem.contextValue = 'settingsItem';
+        items.push(cleanBuildItem);
+
+        // 5. Python Environment
+        const pythonEnvItem = new vscode.TreeItem('python env', vscode.TreeItemCollapsibleState.None);
+        pythonEnvItem.iconPath = new vscode.ThemeIcon('symbol-misc');
+        pythonEnvItem.command = {
+            command: 'wizExplorer.selectBuildPythonInterpreter',
+            title: 'Select Python Environment'
+        };
+        pythonEnvItem.contextValue = 'settingsItem';
+        items.push(pythonEnvItem);
+
+        // 5. Python Packages (pip)
+        const pipItem = new vscode.TreeItem('python packages', vscode.TreeItemCollapsibleState.None);
+        pipItem.iconPath = new vscode.ThemeIcon('package');
+        pipItem.command = {
+            command: 'wizExplorer.openPipManager',
+            title: 'pip Package Manager'
+        };
+        pipItem.contextValue = 'settingsItem';
+        items.push(pipItem);
+
+        // 6. npm Packages
+        const npmItem = new vscode.TreeItem('npm packages', vscode.TreeItemCollapsibleState.None);
+        npmItem.iconPath = new vscode.ThemeIcon('package');
+        npmItem.command = {
+            command: 'wizExplorer.openNpmManager',
+            title: 'npm Package Manager'
+        };
+        npmItem.contextValue = 'settingsItem';
+        items.push(npmItem);
+
+        return items;
+    }
+
+    /**
+     * 시맨틱 버전 비교
+     * @param {string} a
+     * @param {string} b
+     * @returns {number} a > b: 양수, a < b: 음수, 같으면 0
+     */
+    _compareVersions(a, b) {
+        const pa = a.split('.').map(Number);
+        const pb = b.split('.').map(Number);
+        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+            const na = pa[i] || 0;
+            const nb = pb[i] || 0;
+            if (na !== nb) return na - nb;
+        }
+        return 0;
+    }
+}
+
+module.exports = { SourceCategory, PortalCategory, ProjectCategory, CopilotCategory, ConfigCategory, SettingsCategory };

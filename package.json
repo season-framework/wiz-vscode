@@ -2,7 +2,7 @@
   "name": "wiz-vscode",
   "displayName": "Wiz VSCode Explorer",
   "description": "A comprehensive VS Code extension for managing Wiz Framework projects",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "publisher": "season-framework",
   "repository": {
     "type": "git",
@@ -68,6 +68,19 @@
         "icon": "$(add)"
       },
       {
+        "command": "wizExplorer.mcpConfigMenu",
+        "title": "Wiz: MCP Configuration"
+      },
+      {
+        "command": "wizExplorer.updateExtension",
+        "title": "Wiz: Check for Updates"
+      },
+      {
+        "command": "wizExplorer.importGithubFromGit",
+        "title": "Git에서 불러오기",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "wizExplorer.build",
         "title": "Wiz: Build Project",
         "icon": "$(tools)"
@@ -100,6 +113,11 @@
         "command": "wizExplorer.switchProject",
         "title": "Wiz: Switch Project",
         "icon": "$(list-unordered)"
+      },
+      {
+        "command": "wizExplorer.copyProjectName",
+        "title": "Wiz: Copy Current Project Name",
+        "icon": "$(copy)"
       },
       {
         "command": "wizExplorer.exportCurrentProject",
@@ -385,27 +403,7 @@
         {
           "command": "wizExplorer.switchProject",
           "when": "view == wizExplorer",
-          "group": "navigation@4"
-        },
-        {
-          "command": "wizExplorer.startMcpServer",
-          "when": "view == wizExplorer && !wizExplorer:mcpServerRunning",
-          "group": "1_mcp@1"
-        },
-        {
-          "command": "wizExplorer.stopMcpServer",
-          "when": "view == wizExplorer && wizExplorer:mcpServerRunning",
-          "group": "1_mcp@2"
-        },
-        {
-          "command": "wizExplorer.showMcpConfig",
-          "when": "view == wizExplorer && wizExplorer:mcpConfigExists",
-          "group": "1_mcp@3"
-        },
-        {
-          "command": "wizExplorer.createMcpConfig",
-          "when": "view == wizExplorer && !wizExplorer:mcpConfigExists",
-          "group": "1_mcp@3"
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -496,6 +494,11 @@
           "command": "wizExplorer.uploadFile",
           "when": "view == wizExplorer && (viewItem == folder || viewItem == configCategory || viewItem == copilotCategory || viewItem == sourceRootFolder || viewItem == portalRootFolder)",
           "group": "z_reveal"
+        },
+        {
+          "command": "wizExplorer.importGithubFromGit",
+          "when": "view == wizExplorer && viewItem == copilotCategory",
+          "group": "0_import"
         }
       ],
       "commandPalette": [
@@ -549,6 +552,10 @@
         },
         {
           "command": "wizExplorer.switchProject",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "wizExplorer.copyProjectName",
           "when": "workspaceFolderCount > 0"
         },
         {

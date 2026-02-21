@@ -1,12 +1,12 @@
 /**
  * McpManager - MCP 서버 관리
- * MCP 서버 시작/중지, 설정 생성
+ * VS Code 네이티브 MCP 관리 체계(.vscode/mcp.json)와 연동
+ * mcp.json 설정을 통해 VS Code가 MCP 서버 수명주기를 직접 관리
  */
 
 const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
-const cp = require('child_process');
 
 class McpManager {
     /**
@@ -14,26 +14,35 @@ class McpManager {
      * @param {string} options.extensionPath - 익스텐션 경로
      * @param {Function} options.getWizRoot - Wiz 루트 경로 반환 함수
      * @param {Function} options.getCurrentProject - 현재 프로젝트명 반환 함수
+     * @param {Function} options.onStateChange - 상태 변경 콜백
      */
+    /** @type {number} 세션 만료 기간 (7일, ms) */
+    static SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
     constructor(options = {}) {
         this.extensionPath = options.extensionPath;
         this.getWizRoot = options.getWizRoot || (() => undefined);
         this.getCurrentProject = options.getCurrentProject || (() => 'main');
-        this.outputChannel = vscode.window.createOutputChannel('Wiz MCP Server');
-        this.serverProcess = null;
-        this._updateContext();
-        this.updateMcpConfigContext();
+        this.onStateChange = options.onStateChange || (() => {});
+        this.sessionId = vscode.env.sessionId;
+        this._notifyState();
         this._watchMcpConfig();
-        // 초기 상태 파일 기록 (MCP 서버와 동기화용)
+        // 만료 세션 정리 후 상태 파일 기록 (MCP 서버와 동기화용)
+        this.cleanupSessions();
         this.writeState();
     }
 
     /**
-     * Context key 업데이트 (메뉴 when 조건용)
+     * 상태 알림 (트리뷰 갱신 + context key 업데이트)
      * @private
      */
-    _updateContext() {
-        vscode.commands.executeCommand('setContext', 'wizExplorer:mcpServerRunning', this.serverProcess !== null);
+    _notifyState() {
+        const wizServerExists = this._hasWizServer();
+        vscode.commands.executeCommand('setContext', 'wizExplorer:mcpConfigExists', wizServerExists);
+        this.onStateChange({
+            mcpServerRunning: wizServerExists,
+            mcpConfigExists: wizServerExists
+        });
     }
 
     /**
@@ -42,68 +51,75 @@ class McpManager {
      */
     _watchMcpConfig() {
         this._mcpConfigWatcher = vscode.workspace.createFileSystemWatcher('**/.vscode/mcp.json');
-        this._mcpConfigWatcher.onDidCreate(() => this.updateMcpConfigContext());
-        this._mcpConfigWatcher.onDidDelete(() => this.updateMcpConfigContext());
+        this._mcpConfigWatcher.onDidCreate(() => this._notifyState());
+        this._mcpConfigWatcher.onDidChange(() => this._notifyState());
+        this._mcpConfigWatcher.onDidDelete(() => this._notifyState());
     }
 
     /**
-     * MCP 서버 시작
-     * @returns {boolean} 시작 성공 여부
+     * mcp.json에 wiz 서버가 설정되어 있는지 확인
+     * @returns {boolean}
+     * @private
      */
-    start() {
-        if (this.serverProcess) {
-            vscode.window.showWarningMessage('MCP 서버가 이미 실행 중입니다.');
+    _hasWizServer() {
+        const mcpJsonPath = this._getMcpJsonPath();
+        if (!mcpJsonPath || !fs.existsSync(mcpJsonPath)) return false;
+        try {
+            const config = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf8'));
+            return !!(config.servers && config.servers.wiz);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * MCP 서버 활성화 (mcp.json에 wiz 서버 설정 추가)
+     * VS Code가 자동으로 서버 수명주기를 관리
+     */
+    async start() {
+        if (this._hasWizServer()) {
+            vscode.window.showInformationMessage('MCP 서버가 이미 설정되어 있습니다. VS Code가 자동으로 관리합니다.');
             return false;
         }
 
-        const mcpServerPath = path.join(this.extensionPath, 'src', 'mcp', 'index.js');
-        const wizRoot = this.getWizRoot();
-
-        const nodeModulesPath = path.join(this.extensionPath, 'node_modules');
-        this.serverProcess = cp.spawn('node', [mcpServerPath], {
-            cwd: wizRoot,
-            stdio: ['pipe', 'pipe', 'pipe'],
-            env: { ...process.env, NODE_PATH: nodeModulesPath }
-        });
-
-        this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] MCP Server started`);
-        this.outputChannel.show(true);
-
-        this.serverProcess.stderr.on('data', (data) => {
-            this.outputChannel.appendLine(data.toString());
-        });
-
-        this.serverProcess.on('close', (code) => {
-            this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] MCP Server stopped (code: ${code})`);
-            this.serverProcess = null;
-            this._updateContext();
-        });
-
-        this.serverProcess.on('error', (err) => {
-            this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] MCP Server error: ${err.message}`);
-            this.serverProcess = null;
-            this._updateContext();
-        });
-
-        this._updateContext();
-        vscode.window.showInformationMessage('MCP 서버가 시작되었습니다.');
+        await this._ensureConfig();
+        this._notifyState();
+        vscode.window.showInformationMessage('MCP 서버가 활성화되었습니다. VS Code가 자동으로 관리합니다.');
         return true;
     }
 
     /**
-     * MCP 서버 중지
-     * @returns {boolean} 중지 성공 여부
+     * MCP 서버 비활성화 (mcp.json에서 wiz 서버 설정 제거)
      */
     stop() {
-        if (!this.serverProcess) {
-            vscode.window.showWarningMessage('실행 중인 MCP 서버가 없습니다.');
+        const mcpJsonPath = this._getMcpJsonPath();
+        if (!mcpJsonPath || !fs.existsSync(mcpJsonPath)) {
+            vscode.window.showWarningMessage('MCP 설정 파일이 없습니다.');
             return false;
         }
 
-        this.serverProcess.kill();
-        this.serverProcess = null;
-        this._updateContext();
-        vscode.window.showInformationMessage('MCP 서버가 중지되었습니다.');
+        try {
+            const config = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf8'));
+            if (!config.servers || !config.servers.wiz) {
+                vscode.window.showWarningMessage('MCP wiz 서버 설정이 없습니다.');
+                return false;
+            }
+
+            delete config.servers.wiz;
+
+            // 다른 서버 설정이 남아있으면 파일 유지, 아니면 삭제
+            if (Object.keys(config.servers).length === 0) {
+                fs.unlinkSync(mcpJsonPath);
+            } else {
+                fs.writeFileSync(mcpJsonPath, JSON.stringify(config, null, 2), 'utf8');
+            }
+        } catch (e) {
+            // 파싱 실패 시 파일 삭제
+            fs.unlinkSync(mcpJsonPath);
+        }
+
+        this._notifyState();
+        vscode.window.showInformationMessage('MCP 서버가 비활성화되었습니다.');
         return true;
     }
 
@@ -119,58 +135,168 @@ class McpManager {
     }
 
     /**
-     * mcp.json 존재 여부 context key 업데이트
+     * mcp.json 상태 업데이트 (외부 호출용)
      */
     updateMcpConfigContext() {
-        const mcpJsonPath = this._getMcpJsonPath();
-        const exists = mcpJsonPath ? fs.existsSync(mcpJsonPath) : false;
-        vscode.commands.executeCommand('setContext', 'wizExplorer:mcpConfigExists', exists);
+        this._notifyState();
     }
 
     /**
-     * 상태 파일(.vscode/.wiz-state.json) 기록
-     * MCP 서버가 현재 Explorer 프로젝트를 인식할 수 있도록 동기화
+     * 상태 파일(.vscode/.wiz-state.json) 경로 반환
+     * @returns {string|undefined}
+     * @private
      */
-    writeState() {
+    _getStatePath() {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) return;
+        if (!workspaceFolder) return undefined;
+        return path.join(workspaceFolder.uri.fsPath, '.vscode', '.wiz-state.json');
+    }
 
-        const vscodeDir = path.join(workspaceFolder.uri.fsPath, '.vscode');
-        if (!fs.existsSync(vscodeDir)) {
-            fs.mkdirSync(vscodeDir, { recursive: true });
-        }
-
-        const statePath = path.join(vscodeDir, '.wiz-state.json');
-        const state = {
-            workspacePath: this.getWizRoot() || '',
-            currentProject: this.getCurrentProject() || 'main'
-        };
-
+    /**
+     * 상태 파일 읽기 (세션 맵 반환)
+     * @returns {{ sessions: Object<string, { workspacePath: string, currentProject: string, lastUsed: number }> }}
+     * @private
+     */
+    _readStateFile() {
+        const statePath = this._getStatePath();
+        if (!statePath || !fs.existsSync(statePath)) return { sessions: {} };
         try {
-            fs.writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf8');
+            const raw = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+            // 구버전 호환: sessions 키가 없으면 단일 세션으로 마이그레이션
+            if (!raw.sessions) {
+                return {
+                    sessions: {
+                        _migrated: {
+                            workspacePath: raw.workspacePath || '',
+                            currentProject: raw.currentProject || 'main',
+                            lastUsed: Date.now()
+                        }
+                    }
+                };
+            }
+            return raw;
+        } catch (e) {
+            return { sessions: {} };
+        }
+    }
+
+    /**
+     * 상태 파일 쓰기
+     * @param {{ sessions: Object }} stateData
+     * @private
+     */
+    _writeStateFile(stateData) {
+        const statePath = this._getStatePath();
+        if (!statePath) return;
+        const dir = path.dirname(statePath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        try {
+            fs.writeFileSync(statePath, JSON.stringify(stateData, null, 2), 'utf8');
         } catch (e) { /* skip */ }
     }
 
     /**
-     * MCP 설정 객체 생성
+     * 현재 세션 상태를 상태 파일에 기록
+     * MCP 서버가 현재 Explorer 프로젝트를 인식할 수 있도록 동기화
+     */
+    writeState() {
+        const stateData = this._readStateFile();
+        stateData.sessions[this.sessionId] = {
+            workspacePath: this.getWizRoot() || '',
+            currentProject: this.getCurrentProject() || 'main',
+            lastUsed: Date.now()
+        };
+        this._writeStateFile(stateData);
+    }
+
+    /**
+     * 일주일 이상 사용되지 않은 세션 정리
+     */
+    cleanupSessions() {
+        const stateData = this._readStateFile();
+        const now = Date.now();
+        let changed = false;
+        for (const [id, session] of Object.entries(stateData.sessions)) {
+            if (now - (session.lastUsed || 0) > McpManager.SESSION_EXPIRY_MS) {
+                delete stateData.sessions[id];
+                changed = true;
+            }
+        }
+        if (changed) {
+            this._writeStateFile(stateData);
+        }
+    }
+
+    /**
+     * 현재 세션 제거
+     */
+    removeSession() {
+        const stateData = this._readStateFile();
+        if (stateData.sessions[this.sessionId]) {
+            delete stateData.sessions[this.sessionId];
+            this._writeStateFile(stateData);
+        }
+    }
+
+    /**
+     * wiz 서버 설정 객체 생성
      * ${extensionInstallFolder:publisher.extensionId} 변수를 사용하여
      * 어떤 환경에서든 올바른 익스텐션 경로를 참조할 수 있도록 함
+     * @returns {Object} wiz 서버 설정
+     * @private
+     */
+    _getWizServerConfig() {
+        const extFolder = '${extensionInstallFolder:season-framework.wiz-vscode}';
+        return {
+            command: 'node',
+            args: [`${extFolder}/src/mcp/index.js`],
+            env: {
+                NODE_PATH: `${extFolder}/node_modules`,
+                WIZ_WORKSPACE: this.getWizRoot() || ''
+            }
+        };
+    }
+
+    /**
+     * 전체 mcp.json 설정 객체 생성
      * @returns {Object} MCP 설정 객체
      */
     getConfig() {
-        const extFolder = '${extensionInstallFolder:season-framework.wiz-vscode}';
         return {
             servers: {
-                wiz: {
-                    command: 'node',
-                    args: [`${extFolder}/src/mcp/index.js`],
-                    env: {
-                        NODE_PATH: `${extFolder}/node_modules`,
-                        WIZ_WORKSPACE: this.getWizRoot() || ''
-                    }
-                }
+                wiz: this._getWizServerConfig()
             }
         };
+    }
+
+    /**
+     * mcp.json에 wiz 서버 설정 보장 (없으면 생성/추가)
+     * @private
+     */
+    async _ensureConfig() {
+        const mcpJsonPath = this._getMcpJsonPath();
+        if (!mcpJsonPath) {
+            vscode.window.showErrorMessage('워크스페이스가 열려있지 않습니다.');
+            return;
+        }
+
+        const vscodeDir = path.dirname(mcpJsonPath);
+        if (!fs.existsSync(vscodeDir)) {
+            fs.mkdirSync(vscodeDir, { recursive: true });
+        }
+
+        let config = { servers: {} };
+        if (fs.existsSync(mcpJsonPath)) {
+            try {
+                config = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf8'));
+                if (!config.servers) config.servers = {};
+            } catch (e) {
+                config = { servers: {} };
+            }
+        }
+
+        config.servers.wiz = this._getWizServerConfig();
+        fs.writeFileSync(mcpJsonPath, JSON.stringify(config, null, 2), 'utf8');
     }
 
     /**
@@ -183,25 +309,13 @@ class McpManager {
             return;
         }
 
-        if (fs.existsSync(mcpJsonPath)) {
-            // 이미 존재하면 showConfig로 위임
+        if (this._hasWizServer()) {
             return this.showConfig();
         }
 
-        const config = this.getConfig();
-        const configJson = JSON.stringify(config, null, 2);
+        await this._ensureConfig();
+        this._notifyState();
 
-        // .vscode 디렉토리 생성
-        const vscodeDir = path.dirname(mcpJsonPath);
-        if (!fs.existsSync(vscodeDir)) {
-            fs.mkdirSync(vscodeDir, { recursive: true });
-        }
-
-        // 파일 저장
-        fs.writeFileSync(mcpJsonPath, configJson, 'utf8');
-        this.updateMcpConfigContext();
-
-        // 파일 열기
         const doc = await vscode.workspace.openTextDocument(mcpJsonPath);
         await vscode.window.showTextDocument(doc);
 
@@ -219,35 +333,54 @@ class McpManager {
         }
 
         if (!fs.existsSync(mcpJsonPath)) {
-            // 파일이 없으면 createConfig로 위임
             return this.createConfig();
         }
 
-        // 기존 파일 열기
         const doc = await vscode.workspace.openTextDocument(mcpJsonPath);
         await vscode.window.showTextDocument(doc);
     }
 
     /**
-     * 서버 실행 중 여부
-     * @returns {boolean}
+     * MCP 설정 초기화 (wiz 서버 재설정 → 에디터에서 열기)
      */
-    isRunning() {
-        return this.serverProcess !== null;
+    async resetConfig() {
+        const mcpJsonPath = this._getMcpJsonPath();
+        if (!mcpJsonPath) {
+            vscode.window.showErrorMessage('워크스페이스가 열려있지 않습니다.');
+            return;
+        }
+
+        // 기존 mcp.json 삭제
+        if (fs.existsSync(mcpJsonPath)) {
+            fs.unlinkSync(mcpJsonPath);
+        }
+
+        // 설정 재생성
+        await this._ensureConfig();
+        this._notifyState();
+
+        const doc = await vscode.workspace.openTextDocument(mcpJsonPath);
+        await vscode.window.showTextDocument(doc);
+
+        vscode.window.showInformationMessage('MCP 설정이 초기화되었습니다.');
     }
 
     /**
-     * 리소스 정리
+     * wiz 서버 활성화 여부
+     * @returns {boolean}
+     */
+    isRunning() {
+        return this._hasWizServer();
+    }
+
+    /**
+     * 리소스 정리 (세션 제거 포함)
      */
     dispose() {
-        if (this.serverProcess) {
-            this.serverProcess.kill();
-            this.serverProcess = null;
-        }
+        this.removeSession();
         if (this._mcpConfigWatcher) {
             this._mcpConfigWatcher.dispose();
         }
-        this.outputChannel.dispose();
     }
 }
 

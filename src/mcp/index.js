@@ -63,6 +63,7 @@ class WizMcpServer {
         // 환경변수에서 초기값 로드
         this.wizRoot = process.env.WIZ_WORKSPACE || null;
         this.currentProject = process.env.WIZ_PROJECT || 'main';
+        this.wizStatePath = process.env.WIZ_STATE_PATH || null;
 
         // Extension 상태 파일에서 최신 프로젝트 동기화
         this._loadState();
@@ -169,27 +170,94 @@ class WizMcpServer {
      * Extension이 기록하는 .vscode/.wiz-state.json
      */
     _getStatePath() {
-        if (!this.wizRoot) return null;
-        return path.join(this.wizRoot, '.vscode', '.wiz-state.json');
+        const candidates = [];
+
+        if (this.wizStatePath) {
+            candidates.push(this.wizStatePath);
+        }
+
+        if (this.wizRoot) {
+            candidates.push(path.join(this.wizRoot, '.vscode', '.wiz-state.json'));
+        }
+
+        if (process.env.WIZ_WORKSPACE) {
+            candidates.push(path.join(process.env.WIZ_WORKSPACE, '.vscode', '.wiz-state.json'));
+        }
+
+        // cwd 기준 상위 경로까지 탐색 (원격/다른 실행 환경 대응)
+        try {
+            let current = process.cwd();
+            const visited = new Set();
+            while (current && !visited.has(current)) {
+                visited.add(current);
+                candidates.push(path.join(current, '.vscode', '.wiz-state.json'));
+                const parent = path.dirname(current);
+                if (!parent || parent === current) break;
+                current = parent;
+            }
+        } catch (e) { /* skip */ }
+
+        // 읽기: 존재하는 첫 경로 반환
+        for (const candidate of candidates) {
+            if (candidate && fs.existsSync(candidate)) {
+                return candidate;
+            }
+        }
+
+        // 쓰기 fallback: root 기준 기본 위치
+        if (this.wizRoot) {
+            return path.join(this.wizRoot, '.vscode', '.wiz-state.json');
+        }
+        if (process.env.WIZ_WORKSPACE) {
+            return path.join(process.env.WIZ_WORKSPACE, '.vscode', '.wiz-state.json');
+        }
+        try {
+            return path.join(process.cwd(), '.vscode', '.wiz-state.json');
+        } catch (e) {
+            return null;
+        }
     }
 
     /**
      * Extension 상태 파일에서 현재 프로젝트 로드
-     * Explorer에서 선택된 프로젝트와 동기화
+     * 세션 기반: 가장 최근 lastUsed 세션의 데이터를 사용
      */
     _loadState() {
         try {
             const statePath = this._getStatePath();
             if (statePath && fs.existsSync(statePath)) {
-                const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-                if (state.currentProject) this.currentProject = state.currentProject;
-                if (state.workspacePath) this.wizRoot = state.workspacePath;
+                const raw = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+                this.wizStatePath = statePath;
+
+                // 세션 기반 포맷
+                if (raw.sessions) {
+                    const entries = Object.entries(raw.sessions);
+                    if (entries.length === 0) return;
+                    // 가장 최근 세션 선택
+                    let latest = null;
+                    let latestTime = -1;
+                    for (const [, session] of entries) {
+                        if ((session.lastUsed || 0) > latestTime) {
+                            latestTime = session.lastUsed || 0;
+                            latest = session;
+                        }
+                    }
+                    if (latest) {
+                        if (latest.currentProject) this.currentProject = latest.currentProject;
+                        if (latest.workspacePath) this.wizRoot = latest.workspacePath;
+                    }
+                } else {
+                    // 구버전 단일 포맷 호환
+                    if (raw.currentProject) this.currentProject = raw.currentProject;
+                    if (raw.workspacePath) this.wizRoot = raw.workspacePath;
+                }
             }
         } catch (e) { /* skip invalid state */ }
     }
 
     /**
      * 상태 파일에 현재 상태 저장 (MCP에서 프로젝트 전환 시)
+     * 세션 기반: 가장 최근 세션을 업데이트하고 다른 세션은 보존
      */
     _saveState() {
         try {
@@ -197,10 +265,36 @@ class WizMcpServer {
             if (!statePath) return;
             const dir = path.dirname(statePath);
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-            fs.writeFileSync(statePath, JSON.stringify({
+
+            // 기존 세션 데이터 읽기
+            let stateData = { sessions: {} };
+            if (fs.existsSync(statePath)) {
+                try {
+                    const raw = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+                    if (raw.sessions) stateData = raw;
+                } catch (e) { /* use empty */ }
+            }
+
+            // 가장 최근 세션 찾기
+            let latestId = null;
+            let latestTime = -1;
+            for (const [id, session] of Object.entries(stateData.sessions)) {
+                if ((session.lastUsed || 0) > latestTime) {
+                    latestTime = session.lastUsed || 0;
+                    latestId = id;
+                }
+            }
+
+            // 최근 세션 업데이트 (없으면 새 세션 생성)
+            const targetId = latestId || '_mcp';
+            stateData.sessions[targetId] = {
+                ...stateData.sessions[targetId],
                 workspacePath: this.wizRoot,
-                currentProject: this.currentProject
-            }, null, 2), 'utf8');
+                currentProject: this.currentProject,
+                lastUsed: Date.now()
+            };
+
+            fs.writeFileSync(statePath, JSON.stringify(stateData, null, 2), 'utf8');
         } catch (e) { /* skip */ }
     }
 

@@ -6,14 +6,22 @@ const FileTreeItem = require('./treeItems/fileTreeItem');
 const AppGroupItem = require('./treeItems/appGroupItem');
 const EmptyItem = require('./treeItems/emptyItem');
 const AppPatternProcessor = require('./appPatternProcessor');
-const { SourceCategory, PortalCategory, ProjectCategory, CopilotCategory, ConfigCategory } = require('./models/categoryHandlers');
+const { SourceCategory, PortalCategory, ProjectCategory, CopilotCategory, ConfigCategory, SettingsCategory } = require('./models/categoryHandlers');
 const { FLAT_APP_TYPES, APP_TYPES, WizPathUtils } = require('../core');
 
 class FileExplorerProvider {
-    constructor(workspaceRoot, extensionPath, wizRoot) {
+    constructor(workspaceRoot, extensionPath, wizRoot, extensionVersion = '') {
         this.workspaceRoot = workspaceRoot;
         this.extensionPath = extensionPath;
         this.wizRoot = wizRoot;
+        this.extensionVersion = extensionVersion;
+        this.currentProjectName = 'main';
+        /** @type {boolean} MCP 설정 파일 존재 여부 (SettingsCategory에서 참조) */
+        this.mcpConfigExists = false;
+        /** @type {boolean} MCP 서버 실행 중 여부 (SettingsCategory에서 참조) */
+        this.mcpServerRunning = false;
+        /** @type {string|null} 최신 버전 (null이면 확인 안됨) */
+        this.latestVersion = null;
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         /** @private 디바운스된 refresh 타이머 */
@@ -24,6 +32,7 @@ class FileExplorerProvider {
             : vscode.ThemeIcon.Folder;
 
         this.categories = [
+            new SettingsCategory(this),
             new SourceCategory(this),
             new PortalCategory(this),
             new ProjectCategory(this),

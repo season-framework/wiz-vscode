@@ -22,7 +22,12 @@ function activate(context) {
     // ==================== Core Providers ====================
     const appEditorProvider = new AppEditorProvider(context);
     const appContextListener = new AppContextListener(context);
-    const fileExplorerProvider = new FileExplorerProvider(undefined, context.extensionPath);
+    const fileExplorerProvider = new FileExplorerProvider(
+        undefined,
+        context.extensionPath,
+        undefined,
+        context.extension.packageJSON?.version || 'unknown'
+    );
 
     // Register Wiz File System
     context.subscriptions.push(
@@ -62,7 +67,12 @@ function activate(context) {
     const mcpManager = new McpManager({
         extensionPath: context.extensionPath,
         getWizRoot: () => workspaceRoot,
-        getCurrentProject: () => currentProject
+        getCurrentProject: () => currentProject,
+        onStateChange: (state) => {
+            fileExplorerProvider.mcpConfigExists = state.mcpConfigExists;
+            fileExplorerProvider.mcpServerRunning = state.mcpServerRunning;
+            fileExplorerProvider.refresh();
+        }
     });
 
     const sourceManager = new SourceManager({
@@ -102,22 +112,40 @@ function activate(context) {
     // 파일 저장 시 자동 빌드 이벤트 등록 (BuildManager에 위임)
     buildManager.registerSaveWatcher(context);
 
+    function resolveProjectNameCase(wizRoot, projectName) {
+        if (!wizRoot || !projectName) return projectName;
+        try {
+            const projectBase = path.join(wizRoot, 'project');
+            if (!require('fs').existsSync(projectBase)) return projectName;
+            const entries = require('fs').readdirSync(projectBase, { withFileTypes: true });
+            const matched = entries.find(
+                e => e.isDirectory() && e.name.toLowerCase() === projectName.toLowerCase()
+            );
+            return matched ? matched.name : projectName;
+        } catch (e) {
+            return projectName;
+        }
+    }
+
     // ==================== Workspace State Sync ====================
     function updateProjectRoot() {
         if (!workspaceRoot) {
             fileExplorerProvider.workspaceRoot = undefined;
             fileExplorerProvider.wizRoot = undefined;
+            fileExplorerProvider.currentProjectName = currentProject;
             fileExplorerProvider.refresh();
             return;
         }
 
-        const projectPath = path.join(workspaceRoot, 'project', currentProject);
+        const displayProjectName = resolveProjectNameCase(workspaceRoot, currentProject);
+        const projectPath = path.join(workspaceRoot, 'project', displayProjectName);
         fileExplorerProvider.workspaceRoot = projectPath;
         fileExplorerProvider.wizRoot = workspaceRoot;
+        fileExplorerProvider.currentProjectName = displayProjectName;
         fileExplorerProvider.refresh();
         
         if (treeView) {
-            treeView.title = currentProject;
+            treeView.title = displayProjectName;
         }
 
         // Service managers 상태 동기화
@@ -146,6 +174,30 @@ function activate(context) {
     });
     context.subscriptions.push(treeView);
     updateProjectRoot();
+
+    // 최신 버전 확인 (GitHub tags에서 조회)
+    (async () => {
+        try {
+            const https = require('https');
+            const data = await new Promise((resolve, reject) => {
+                const req = https.get('https://api.github.com/repos/season-framework/wiz-vscode/tags?per_page=1', {
+                    headers: { 'User-Agent': 'wiz-vscode-extension' }
+                }, (res) => {
+                    let body = '';
+                    res.on('data', chunk => body += chunk);
+                    res.on('end', () => resolve(body));
+                });
+                req.on('error', reject);
+                req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
+            });
+            const tags = JSON.parse(data);
+            if (tags.length > 0) {
+                const latest = tags[0].name.replace(/^v/, '');
+                fileExplorerProvider.latestVersion = latest;
+                fileExplorerProvider.refresh();
+            }
+        } catch (e) { /* 네트워크 오류 무시 */ }
+    })();
 
     // Auto-reveal on file change
     context.subscriptions.push(
@@ -193,15 +245,167 @@ function activate(context) {
         ['wizExplorer.refresh', () => fileExplorerProvider.refresh()],
         ['wizExplorer.openAppEditor', (appPath, groupType) => appEditorProvider.openEditor(appPath, groupType)],
         ['wizExplorer.openPortalInfo', (portalJsonPath) => appEditorProvider.openPortalInfoEditor(portalJsonPath)],
+        ['wizExplorer.updateExtension', async () => {
+            const latest = fileExplorerProvider.latestVersion;
+            const current = context.extension.packageJSON?.version || '0.0.0';
+            if (!latest) {
+                vscode.window.showInformationMessage('버전 정보를 확인할 수 없습니다.');
+                return;
+            }
+            const pa = latest.split('.').map(Number);
+            const pb = current.split('.').map(Number);
+            let hasUpdate = false;
+            for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+                if ((pa[i] || 0) > (pb[i] || 0)) { hasUpdate = true; break; }
+                if ((pa[i] || 0) < (pb[i] || 0)) break;
+            }
+            if (!hasUpdate) {
+                vscode.window.showInformationMessage(`현재 v${current}은 최신 버전입니다.`);
+                return;
+            }
+            const pick = await vscode.window.showInformationMessage(
+                `새 버전 v${latest}이 있습니다 (현재 v${current}). 업데이트하시겠습니까?`,
+                '업데이트'
+            );
+            if (pick === '업데이트') {
+                const vsixUrl = `https://github.com/season-framework/wiz-vscode/releases/download/v${latest}/wiz-vscode-${latest}.vsix`;
+                await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Notification, title: `Wiz v${latest} 다운로드 중...`, cancellable: false },
+                    async (progress) => {
+                        try {
+                            const https = require('https');
+                            const os = require('os');
+                            const tmpPath = require('path').join(os.tmpdir(), `wiz-vscode-${latest}.vsix`);
+
+                            // GitHub releases → 302 redirect 처리 포함 다운로드
+                            await new Promise((resolve, reject) => {
+                                const download = (url) => {
+                                    https.get(url, { headers: { 'User-Agent': 'wiz-vscode-extension' } }, (res) => {
+                                        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                                            download(res.headers.location);
+                                            return;
+                                        }
+                                        if (res.statusCode !== 200) {
+                                            reject(new Error(`HTTP ${res.statusCode}`));
+                                            return;
+                                        }
+                                        const fileStream = require('fs').createWriteStream(tmpPath);
+                                        res.pipe(fileStream);
+                                        fileStream.on('finish', () => { fileStream.close(); resolve(); });
+                                        fileStream.on('error', reject);
+                                    }).on('error', reject);
+                                };
+                                download(vsixUrl);
+                            });
+
+                            progress.report({ message: '설치 중...' });
+                            await vscode.commands.executeCommand(
+                                'workbench.extensions.installExtension',
+                                vscode.Uri.file(tmpPath)
+                            );
+
+                            // 임시 파일 정리
+                            try { require('fs').unlinkSync(tmpPath); } catch (e) { /* skip */ }
+
+                            const reload = await vscode.window.showInformationMessage(
+                                '업데이트가 완료되었습니다. 다시 로드하시겠습니까?',
+                                '다시 로드'
+                            );
+                            if (reload === '다시 로드') {
+                                await vscode.commands.executeCommand('workbench.action.reloadWindow');
+                            }
+                        } catch (err) {
+                            vscode.window.showErrorMessage(`업데이트 실패: ${err.message}`);
+                        }
+                    }
+                );
+            }
+        }],
 
         // MCP Server commands
         ['wizExplorer.startMcpServer', () => mcpManager.start()],
         ['wizExplorer.stopMcpServer', () => mcpManager.stop()],
         ['wizExplorer.showMcpConfig', () => mcpManager.showConfig()],
         ['wizExplorer.createMcpConfig', () => mcpManager.createConfig()],
+        ['wizExplorer.mcpConfigMenu', async () => {
+            const mcpJsonPath = mcpManager._getMcpJsonPath();
+            const exists = mcpJsonPath && require('fs').existsSync(mcpJsonPath);
+
+            if (!exists) {
+                await mcpManager.createConfig();
+                return;
+            }
+
+            const pick = await vscode.window.showQuickPick(
+                [
+                    { label: '$(file-code) 설정 보기', description: '.vscode/mcp.json 열기', id: 'show' },
+                    { label: '$(refresh) 초기화 하기', description: 'MCP 서버 중지 및 설정 재생성', id: 'reset' }
+                ],
+                { title: 'MCP Configuration', placeHolder: '원하는 작업을 선택하세요' }
+            );
+            if (!pick) return;
+
+            if (pick.id === 'show') {
+                await mcpManager.showConfig();
+            } else if (pick.id === 'reset') {
+                await mcpManager.resetConfig();
+            }
+        }],
         
+        // Git에서 .github 불러오기
+        ['wizExplorer.importGithubFromGit', async () => {
+            if (!workspaceRoot) {
+                vscode.window.showErrorMessage('워크스페이스가 열려있지 않습니다.');
+                return;
+            }
+
+            const gitUrl = await vscode.window.showInputBox({
+                title: 'Git에서 .github 불러오기',
+                prompt: 'Git 레포지토리 주소를 입력하세요',
+                placeHolder: 'https://github.com/user/repo.git',
+                ignoreFocusOut: true
+            });
+            if (!gitUrl) return;
+
+            const githubPath = require('path').join(workspaceRoot, '.github');
+            const githubExists = require('fs').existsSync(githubPath);
+
+            const confirm = await vscode.window.showWarningMessage(
+                githubExists
+                    ? `기존 .github 디렉토리가 삭제되고 "${gitUrl}" 레포로 교체됩니다. 계속하시겠습니까?`
+                    : `"${gitUrl}" 레포를 .github 디렉토리로 클론합니다. 계속하시겠습니까?`,
+                { modal: true },
+                '확인'
+            );
+            if (confirm !== '확인') return;
+
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: '.github 불러오는 중...' },
+                async () => {
+                    const cp = require('child_process');
+                    const util = require('util');
+                    const exec = util.promisify(cp.exec);
+                    try {
+                        if (githubExists) {
+                            await exec(`rm -rf "${githubPath}"`);
+                        }
+                        await exec(`git clone "${gitUrl}" "${githubPath}"`);
+                        // .git 디렉토리 제거 (독립 레포 히스토리 불필요)
+                        const dotGitPath = require('path').join(githubPath, '.git');
+                        if (require('fs').existsSync(dotGitPath)) {
+                            await exec(`rm -rf "${dotGitPath}"`);
+                        }
+                        vscode.window.showInformationMessage('.github 디렉토리를 성공적으로 불러왔습니다.');
+                        fileExplorerProvider.refresh();
+                    } catch (err) {
+                        vscode.window.showErrorMessage(`Git 클론 실패: ${err.message}`);
+                    }
+                }
+            );
+        }],
+
         // Build command
-        ['wizExplorer.build', () => buildManager.showBuildMenu()],
+        ['wizExplorer.build', () => buildManager.normalBuild()],
         ['wizExplorer.selectBuildPythonInterpreter', () => buildManager.selectBuildPythonInterpreter()],
 
         // npm 패키지 관리
@@ -277,6 +481,15 @@ function activate(context) {
             } else if ((result.action === 'import' || result.action === 'importFile') && result.projectName) {
                 currentProject = result.projectName;
                 updateProjectRoot();
+            }
+        }],
+        ['wizExplorer.copyProjectName', async () => {
+            const displayProjectName = resolveProjectNameCase(workspaceRoot, currentProject);
+            try {
+                await vscode.env.clipboard.writeText(displayProjectName);
+                vscode.window.showInformationMessage(`프로젝트명이 복사되었습니다: ${displayProjectName}`);
+            } catch (e) {
+                vscode.window.showWarningMessage(`클립보드 복사 실패: ${displayProjectName}`);
             }
         }],
 
@@ -439,7 +652,16 @@ function activate(context) {
         
         // Direct build commands (without menu selection)
         ['wizExplorer.normalBuild', () => buildManager.normalBuild()],
-        ['wizExplorer.cleanBuild', () => buildManager.cleanBuild()],
+        ['wizExplorer.cleanBuild', async () => {
+            const choice = await vscode.window.showWarningMessage(
+                'Clean Build를 실행하시겠습니까? 기존 빌드를 삭제 후 재빌드하므로 시간이 오래 걸릴 수 있습니다.',
+                { modal: true },
+                '실행'
+            );
+            if (choice === '실행') {
+                buildManager.cleanBuild();
+            }
+        }],
         ['wizExplorer.showBuildOutput', () => buildManager.showOutput()],
 
         // Export current project directly
