@@ -2,7 +2,7 @@
 
 A comprehensive VS Code extension for managing [Wiz Framework](https://github.com/season-framework/wiz) projects with an enhanced file explorer, specialized editors, and intelligent project navigation.
 
-[![Version](https://img.shields.io/badge/version-1.2.2-green.svg)](https://github.com/season-framework/wiz-vscode)
+[![Version](https://img.shields.io/badge/version-1.3.0-green.svg)](https://github.com/season-framework/wiz-vscode/releases/tag/v1.3.0)
 [![Wiz](https://img.shields.io/badge/wiz-%3E%3D2.5.0-blue.svg)](https://github.com/season-framework/wiz)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.60+-purple.svg)](https://code.visualstudio.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -208,7 +208,7 @@ npm install
 ### From VSIX Package
 
 ```bash
-code --install-extension wiz-vscode-1.2.2.vsix
+code --install-extension wiz-vscode-1.3.0.vsix
 ```
 
 ### Building VSIX from Source
@@ -386,117 +386,12 @@ Open Developer Tools in Extension Host window
 
 ---
 
-## 📊 Version History
+## 📊 Latest Version: v1.3.0
 
-### v1.2.2 (Current)
+See [Release Notes](./release/v1.3.0.md) for details on the current release.
 
-**Route Title Display & MCP Dependency Management**:
-- ✅ Route/Portal App tree items now display Title instead of ID (ID shown as description)
-- ✅ Portal App tree items also display Title from app.json
-- ✅ MCP Dependency Management: 6 new tools for pip/npm package management
-- ✅ `wiz_pip_list` / `wiz_pip_install` / `wiz_pip_uninstall` — pip package management via MCP
-- ✅ `wiz_npm_list` / `wiz_npm_install` / `wiz_npm_uninstall` — npm package management via MCP
-- ✅ Auto-detect workspace venv for pip, project package.json for npm
-- ✅ MCP server tools expanded: 30 → 36 tools
-
-### v1.2.1
-
-**MCP Explorer Sync & Config**:
-- ✅ MCP-Explorer real-time project synchronization via shared state file
-- ✅ MCP config auto-saved to `.vscode/mcp.json` (no more untitled documents)
-- ✅ Dynamic Create/Show MCP Config menu based on file existence
-- ✅ `workspacePath`/`projectName` auto-injected from Explorer state (all params optional)
-- ✅ Relative path auto-resolution (`portal/app/name` → `{projectRoot}/src/portal/app/name`)
-- ✅ `wiz_get_workspace_state` tool for agents to check current context
-- ✅ MCP server tools expanded: 16 → 30 tools
-- ✅ MCP menu integration in Explorer toolbar (Start/Stop/Config)
-- ✅ Current Project command for agent mode
-
-### v1.2.0
-
-**New Features**:
-- ✅ Python environment auto-discovery (PATH, conda, pyenv, venv, system paths)
-- ✅ QuickPick-based Python interpreter selection with version info and wiz status
-- ✅ npm package management Webview editor (install, uninstall, upgrade, search/filter)
-- ✅ pip package management Webview editor with auto Python env selection
-- ✅ Settings menu restructured (Build / Python / npm / pip)
-
-**Improvements**:
-- ✅ Build debouncing (500ms) to prevent redundant builds on rapid saves
-- ✅ Tree explorer stability: debounced refresh, findItem loop guard, virtual folder creation whitelist
-- ✅ Auto-reveal safety: skip dirty documents, 500ms timeout, existence check
-- ✅ Card-based Webview UI with @vscode/codicons and real-time search filtering
-
-### v1.1.2
-
-**Refactoring & Bug Fixes**:
-- ✅ Save watcher logic moved from extension.js to BuildManager (separation of concerns)
-- ✅ Auto-build event changed from `onWillSave` to `onDidChange` — fixes `wiz://` scheme build trigger
-- ✅ Copilot/Config category `resourceUri` now dynamically resolved (fixes file creation in wrong path)
-- ✅ File/folder creation auto-creates parent directory (`.github`, `config`)
-- ✅ Drag & drop now supported on Copilot/Config categories
-- ✅ extension.js monkey-patching removed, initialization order cleaned up
-
-### v1.1.1
-
-**Bug Fixes & Improvements**:
-- ✅ Auto-build only triggers on actual content changes (not every save)
-- ✅ Python interpreter selection for venv/conda build environments
-- ✅ Wiz URI compatibility improved for external extensions
-- ✅ Keyboard navigation revamped (Opt+A/S/T file type cycling)
-- ✅ Source Angular tree ID duplicate fix
-
-### v1.1.0
-
-**New Features**:
-- ✅ Copilot category for `.github` folder access
-- ✅ Config category for project configuration
-- ✅ File/folder upload via Webview (Remote compatible)
-- ✅ Source/Packages root folder protection
-- ✅ Project export with download dialog
-
-**Architecture Improvements**:
-- ✅ Services layer with 3-tier hierarchy (project/app/file)
-- ✅ Business logic completely separated from extension.js
-- ✅ Core utilities refactored (ZipUtils, UploadWebview)
-
-### v1.0.0
-
-**Core Features**:
-- ✅ Tree View with Source/Portal/Project categories
-- ✅ App/Route/Portal App editors with View Type selection
-- ✅ App creation workflows (Source and Package locations)
-- ✅ Drag & drop file operations
-- ✅ Keyboard shortcuts (Opt+A/S/T)
-- ✅ Auto-reveal active file
-
-**Project Management**:
-- ✅ Project import/export (.wizproject format)
-- ✅ Project switching and deletion
-- ✅ Git-based project cloning
-- ✅ Package creation and export (.wizpkg format)
-
-**Build Integration**:
-- ✅ Auto-build on file save
-- ✅ Normal/Clean build options
-- ✅ Build output channel
-
-**Command Palette**:
-- ✅ 20+ commands accessible via Ctrl+Shift+P
-- ✅ App search and navigation (Go to App)
-- ✅ Direct build commands
-
----
-
-## 📝 Changelog
-
-Detailed development logs are maintained in [devlog/](./devlog/) directory.
-
-**Recent Updates (v1.2.2)**:
-- **071**: MCP pip/npm dependency management tools (6 new tools)
-- **070**: Route/Portal App tree items display Title instead of ID
-
-[View Full Development History →](./DEVLOG.md)
+All release notes are available in the [release/](./release/) directory.  
+Detailed development logs are maintained in [devlog/](./devlog/) and [DEVLOG.md](./DEVLOG.md).
 
 ---
 
