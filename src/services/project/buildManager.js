@@ -36,6 +36,12 @@ class BuildManager {
         this._editedDocuments.clear();
     }
 
+    isAutoBuildEnabled() {
+        return vscode.workspace
+            .getConfiguration('wizExplorer')
+            .get('build.autoBuildOnSave', true);
+    }
+
     /**
      * 파일 저장 시 자동 빌드 이벤트 리스너를 등록한다.
      * onDidChangeTextDocument로 편집 여부를 추적하고,
@@ -66,6 +72,7 @@ class BuildManager {
                 const realPath = this._resolveDocumentRealPath(document);
                 if (!realPath) return;
                 if (!this._isInCurrentProjectSrc(realPath)) return;
+                if (!this.isAutoBuildEnabled()) return;
 
                 this.triggerBuild();
             })

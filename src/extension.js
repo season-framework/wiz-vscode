@@ -126,7 +126,10 @@ function activate(context) {
     });
 
     // Inject build trigger to AppEditorProvider
-    appEditorProvider.onFileSaved = () => buildManager.triggerBuild(false);
+    appEditorProvider.onFileSaved = () => {
+        if (!buildManager.isAutoBuildEnabled()) return;
+        buildManager.triggerBuild(false);
+    };
 
     // 파일 저장 시 자동 빌드 이벤트 등록 (BuildManager에 위임)
     buildManager.registerSaveWatcher(context);

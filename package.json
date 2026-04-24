@@ -953,6 +953,12 @@
     "configuration": {
       "title": "Wiz Explorer",
       "properties": {
+        "wizExplorer.build.autoBuildOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Wiz 프로젝트 구조 내 파일 저장 시 자동으로 빌드를 실행할지 여부입니다.",
+          "scope": "resource"
+        },
         "wizExplorer.build.pythonInterpreterPath": {
           "type": "string",
           "default": "",

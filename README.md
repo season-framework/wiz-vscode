@@ -153,7 +153,7 @@ When editing a Wiz app (`wiz://` scheme active):
 - **Package Management**: Create and export Portal packages
 
 ### 🔄 Build Integration
-- **Auto-Build Trigger**: Automatic build on file save (only when content actually changes)
+- **Auto-Build Trigger**: Automatic build on file save, with on/off control via `wizExplorer.build.autoBuildOnSave`
 - **Python Environment Auto-Discovery**: Automatically scan PATH, conda, pyenv, venv for available interpreters
 - **Python Interpreter Selection**: QuickPick-based selector with version info and wiz availability
 - **Build Output Channel**: Real-time build log viewing
@@ -322,7 +322,17 @@ code --install-extension wiz-vscode-*.vsix
 - `Wiz: Clean Build` - Full rebuild from scratch
 
 **Auto Build**:
-- Triggered automatically when saving any file in the project
+- Triggered automatically when saving files in the current Wiz project `src/` tree
+- Can be disabled with the `wizExplorer.build.autoBuildOnSave` setting
+
+**Settings Example**:
+```json
+{
+   "wizExplorer.build.autoBuildOnSave": false
+}
+```
+
+Disabling auto build does not affect manual build commands.
 
 ---
 
